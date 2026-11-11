@@ -1,0 +1,294 @@
+<title>Aukro limit na karty</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, inputs on top, the limit you type into Aukro as the hero result, details below. */
+:root {
+  --bg: #f3f4f8;
+  --surface: #ffffff;
+  --ink: #1b1f3a;
+  --muted: #5d6385;
+  --line: #dfe2ec;
+  --accent: #f2c230;
+  --accent-ink: #1b1f3a;
+  --good: #1d8a52;
+  --good-bg: #e3f4ea;
+  --bad: #c23a32;
+  --bad-bg: #fbe7e5;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12142a; --surface: #1c1f3b; --ink: #eceefa; --muted: #a2a7c8; --line: #2e3257;
+    --accent: #f2c230; --accent-ink: #1b1f3a;
+    --good: #5fd394; --good-bg: #173a2a; --bad: #ff8a80; --bad-bg: #44201e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12142a; --surface: #1c1f3b; --ink: #eceefa; --muted: #a2a7c8; --line: #2e3257;
+  --accent: #f2c230; --accent-ink: #1b1f3a;
+  --good: #5fd394; --good-bg: #173a2a; --bad: #ff8a80; --bad-bg: #44201e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+main { max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.7rem; line-height: 1.15; margin: 0; text-wrap: balance; }
+.lede { margin: 4px 0 0; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 360px) { .row2 { grid-template-columns: 1fr; } }
+label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 0.85rem; min-width: 0; }
+label small { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
+.field { position: relative; }
+.field input {
+  width: 100%; font: inherit; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  padding: 11px 38px 11px 12px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--bg); color: var(--ink);
+}
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.field .unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
+
+.hero { background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 18px 16px; display: flex; flex-direction: column; gap: 4px; }
+.hero .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
+.hero .big { font-family: var(--font-display); font-weight: 800; font-size: 2.6rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hero .sub { font-size: 0.9rem; }
+
+.status { border-radius: 10px; padding: 10px 12px; font-weight: 600; }
+.status.ok { background: var(--good-bg); color: var(--good); }
+.status.no { background: var(--bad-bg); color: var(--bad); }
+
+dl.stats { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; }
+dl.stats dt { color: var(--muted); }
+dl.stats dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pos { color: var(--good); }
+.neg { color: var(--bad); }
+
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; margin: 0; }
+.ladder-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+th, td { padding: 7px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 0.78rem; }
+th:first-child, td:first-child { text-align: left; }
+tr.limit td { font-weight: 700; }
+.note { color: var(--muted); font-size: 0.8rem; margin: 0; }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-size: 1.2rem; color: var(--muted); }
+details[open] summary::after { content: "\2212"; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 14px; }
+.settings { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+button.reset { align-self: flex-start; font: inherit; font-size: 0.85rem; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<main>
+  <header>
+    <h1>Aukro limit na karty</h1>
+    <p class="lede">Zadaj aktuálnu cenu aukcie a za koľko kartu predáš. Ukážem ti, aký limit si nastaviť v automatickom prihadzovaní.</p>
+  </header>
+
+  <section class="panel" aria-label="Zadanie">
+    <div class="row2">
+      <label for="current">Aktuálna cena aukcie
+        <span class="field"><input id="current" type="text" inputmode="decimal" autocomplete="off" value="12"><span class="unit">€</span></span>
+      </label>
+      <label for="sell">Predám za
+        <span class="field"><input id="sell" type="text" inputmode="decimal" autocomplete="off" value="35"><span class="unit">€</span></span>
+      </label>
+    </div>
+  </section>
+
+  <section class="hero" aria-live="polite">
+    <span class="eyebrow">Nastav limit (max. príhoz)</span>
+    <span class="big" id="limit">0 €</span>
+    <span class="sub" id="heroSub"></span>
+  </section>
+
+  <div class="status" id="status"></div>
+
+  <section class="panel" aria-label="Výsledok">
+    <dl class="stats">
+      <dt>Krok príhozu</dt><dd id="oStep"></dd>
+      <dt>Počet príhozov do limitu</dt><dd id="oBids"></dd>
+      <dt>Doručenie</dt><dd id="oShip"></dd>
+      <dt>Celkový náklad pri limite</dt><dd id="oCost"></dd>
+      <dt>Zisk pri limite</dt><dd id="oProfitLimit"></dd>
+      <dt>Zisk, ak vyhráš o 1 krok</dt><dd id="oProfitNow"></dd>
+    </dl>
+  </section>
+
+  <section class="panel" aria-label="Rebríček príhozov">
+    <h2>Ako sa bude prihadzovať</h2>
+    <div class="ladder-wrap">
+      <table>
+        <thead><tr><th>Cena karty</th><th>+ doručenie</th><th>Zisk</th><th>Zisk %</th></tr></thead>
+        <tbody id="ladder"></tbody>
+      </table>
+    </div>
+    <p class="note" id="ladderNote"></p>
+  </section>
+
+  <details id="settingsBox">
+    <summary>Nastavenia</summary>
+    <div class="settings">
+      <div class="row2">
+        <label for="ship">Doručenie
+          <span class="field"><input id="ship" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        </label>
+        <label for="target">Minimálny zisk
+          <span class="field"><input id="target" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="step">Krok príhozu
+          <span class="field"><input id="step" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Minimálny príhoz, ktorý ukazuje aukcia.</small>
+        </label>
+        <label for="fee">Poplatok pri predaji
+          <span class="field"><input id="fee" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+          <small>Provízia platformy, kde kartu predáš.</small>
+        </label>
+      </div>
+      <p class="note">Zisk % sa ráta z toho, koľko do karty vložíš (cena + doručenie). Nastavenia si stránka pamätá v tomto prehliadači.</p>
+      <button type="button" class="reset" id="reset">Obnoviť predvolené (4 €, 25 %, 0,50 €, 0 %)</button>
+    </div>
+  </details>
+</main>
+
+<script>
+(function () {
+  var DEFAULTS = { ship: 4, target: 25, step: 0.5, fee: 0 };
+  var KEY = "aukro-calc-settings-v1";
+  var $ = function (id) { return document.getElementById(id); };
+  var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
+  var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
+
+  function num(el) {
+    var v = parseFloat(String(el.value).replace(/\s/g, "").replace(",", "."));
+    return isFinite(v) ? v : NaN;
+  }
+  function fmtInput(n) { return String(n).replace(".", ","); }
+  function floorCent(x) { return Math.floor(x * 100 + 1e-9) / 100; }
+
+  function load() {
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { s = {}; }
+    ["ship", "target", "step", "fee"].forEach(function (k) {
+      var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
+      $(k).value = fmtInput(v);
+    });
+  }
+  function save() {
+    var s = {};
+    ["ship", "target", "step", "fee"].forEach(function (k) { var v = num($(k)); if (isFinite(v)) s[k] = v; });
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
+  // Core math. Exposed for a quick check.
+  function calc(current, sell, ship, target, step, fee) {
+    var net = sell * (1 - fee / 100);                 // what you actually get after selling fees
+    var maxCost = net / (1 + target / 100);           // most you may spend in total
+    var limit = floorCent(maxCost - ship);            // max bid you type into Aukro
+    var next = current + step;                        // the price if you outbid now
+    var bids = step > 0 && limit >= next ? Math.floor((limit - current) / step + 1e-9) : 0;
+    function profitAt(price) { var cost = price + ship; return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost }; }
+    return { net: net, limit: limit, next: next, bids: bids, profitAt: profitAt, ok: limit >= next };
+  }
+  window.aukroCalc = calc;
+
+  function signed(el, v, text) {
+    el.textContent = text;
+    el.className = v >= 0 ? "pos" : "neg";
+  }
+
+  function render() {
+    var current = num($("current")), sell = num($("sell"));
+    var ship = num($("ship")), target = num($("target")), step = num($("step")), fee = num($("fee"));
+    if (!isFinite(ship)) ship = DEFAULTS.ship;
+    if (!isFinite(target)) target = DEFAULTS.target;
+    if (!isFinite(step) || step <= 0) step = DEFAULTS.step;
+    if (!isFinite(fee)) fee = DEFAULTS.fee;
+    if (!isFinite(current)) current = 0;
+
+    var status = $("status");
+    if (!isFinite(sell) || sell <= 0) {
+      $("limit").textContent = "?";
+      $("heroSub").textContent = "Zadaj, za koľko kartu predáš.";
+      status.textContent = "Chýba predajná cena.";
+      status.className = "status no";
+      $("ladder").innerHTML = ""; $("ladderNote").textContent = "";
+      ["oStep", "oBids", "oShip", "oCost", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
+      return;
+    }
+
+    var r = calc(current, sell, ship, target, step, fee);
+    var pl = r.profitAt(r.limit), pn = r.profitAt(r.next);
+
+    $("limit").textContent = r.limit > 0 ? eur.format(r.limit) : eur.format(0);
+    $("heroSub").textContent = "Aukro bude prihadzovať po " + eur.format(step) + ", kým cena nedosiahne " + eur.format(Math.max(r.limit, 0)) + ".";
+
+    if (r.ok) {
+      status.textContent = "Oplatí sa. Máš priestor na " + r.bids + (r.bids === 1 ? " príhoz." : (r.bids < 5 ? " príhozy." : " príhozov."));
+      status.className = "status ok";
+    } else {
+      status.textContent = "Neprihadzuj. Už pri ďalšom príhoze (" + eur.format(r.next) + ") by si nemal " + pct.format(target) + " % zisk.";
+      status.className = "status no";
+    }
+
+    $("oStep").textContent = eur.format(step);
+    $("oBids").textContent = String(r.bids);
+    $("oShip").textContent = eur.format(ship);
+    $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
+    signed($("oProfitLimit"), pl.abs, eur.format(pl.abs) + " (" + pct.format(pl.rel) + " %)");
+    signed($("oProfitNow"), pn.abs, eur.format(pn.abs) + " (" + pct.format(pn.rel) + " %)");
+
+    // Ladder from the next bid up to the limit (plus one row past it to show where it stops paying off).
+    var rows = [], MAX = 25, price = r.next, i = 0;
+    var prices = [];
+    if (r.bids <= MAX) {
+      for (i = 0; i < r.bids; i++) prices.push(floorCent(current + step * (i + 1)));
+    } else {
+      // Too many steps: show evenly spread rows.
+      for (i = 0; i < MAX; i++) prices.push(floorCent(current + step * Math.round((i + 1) * r.bids / MAX)));
+    }
+    if (prices.length === 0 || prices[prices.length - 1] < r.limit) prices.push(r.limit);
+    var over = floorCent(Math.max(prices[prices.length - 1], current) + step);
+    prices.forEach(function (p) { rows.push(rowHtml(p, r, p === r.limit, false)); });
+    rows.push(rowHtml(over, r, false, true));
+    $("ladder").innerHTML = rows.join("");
+    $("ladderNote").textContent = (r.bids > MAX ? "Príhozov je veľa, ukazujem len vybrané kroky. " : "") +
+      "Tučný riadok je tvoj limit. Posledný riadok je cena, pri ktorej už nemáš " + pct.format(target) + " % zisk.";
+    void price;
+  }
+
+  function rowHtml(p, r, isLimit, isOver) {
+    var pr = r.profitAt(p);
+    var cls = pr.rel >= num($("target")) - 1e-9 && !isOver ? "pos" : "neg";
+    return '<tr class="' + (isLimit ? "limit" : "") + '"><td>' + eur.format(p) + (isLimit ? " (limit)" : "") +
+      "</td><td>" + eur.format(pr.cost) + '</td><td class="' + cls + '">' + eur.format(pr.abs) +
+      '</td><td class="' + cls + '">' + pct.format(pr.rel) + " %</td></tr>";
+  }
+
+  load();
+  ["current", "sell"].forEach(function (id) { $(id).addEventListener("input", render); });
+  ["ship", "target", "step", "fee"].forEach(function (id) { $(id).addEventListener("input", function () { save(); render(); }); });
+  $("reset").addEventListener("click", function () {
+    ["ship", "target", "step", "fee"].forEach(function (k) { $(k).value = fmtInput(DEFAULTS[k]); });
+    save(); render();
+  });
+  render();
+})();
+</script>
