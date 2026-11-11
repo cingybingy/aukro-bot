@@ -56,8 +56,11 @@ label small { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
   padding: 11px 38px 11px 12px; border-radius: 10px; border: 1.5px solid var(--line);
   background: var(--bg); color: var(--ink);
 }
+.field input:disabled { opacity: 0.6; }
 .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 .field .unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
+label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 500; }
+label.check input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; flex: none; }
 
 .hero { background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 18px 16px; display: flex; flex-direction: column; gap: 4px; }
 .hero .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
@@ -75,12 +78,13 @@ dl.stats dd { margin: 0; text-align: right; font-weight: 600; font-variant-numer
 .neg { color: var(--bad); }
 
 h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; margin: 0; }
-.ladder-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
 th, td { padding: 7px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 500; font-size: 0.78rem; }
 th:first-child, td:first-child { text-align: left; }
 tr.limit td { font-weight: 700; }
+tr.active td { font-weight: 700; color: var(--ink); background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .note { color: var(--muted); font-size: 0.8rem; margin: 0; }
 
 details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
@@ -97,7 +101,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 <main>
   <header>
     <h1>Aukro limit na karty</h1>
-    <p class="lede">Zadaj aktuálnu cenu aukcie a za koľko kartu predáš. Ukážem ti, aký limit si nastaviť v automatickom prihadzovaní.</p>
+    <p class="lede">Zadaj aktuálnu cenu aukcie a za koľko kartu predáš na Cardmarkete. Ukážem ti, aký limit si nastaviť v automatickom prihadzovaní.</p>
   </header>
 
   <section class="panel" aria-label="Zadanie">
@@ -121,18 +125,19 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
   <section class="panel" aria-label="Výsledok">
     <dl class="stats">
-      <dt>Krok príhozu</dt><dd id="oStep"></dd>
+      <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
       <dt>Počet príhozov do limitu</dt><dd id="oBids"></dd>
       <dt>Doručenie</dt><dd id="oShip"></dd>
       <dt>Celkový náklad pri limite</dt><dd id="oCost"></dd>
+      <dt id="oFeeLabel">Poplatok Cardmarket</dt><dd id="oFee"></dd>
       <dt>Zisk pri limite</dt><dd id="oProfitLimit"></dd>
-      <dt>Zisk, ak vyhráš o 1 krok</dt><dd id="oProfitNow"></dd>
+      <dt>Zisk, ak vyhráš o 1 príhoz</dt><dd id="oProfitNow"></dd>
     </dl>
   </section>
 
   <section class="panel" aria-label="Rebríček príhozov">
     <h2>Ako sa bude prihadzovať</h2>
-    <div class="ladder-wrap">
+    <div class="table-wrap">
       <table>
         <thead><tr><th>Cena karty</th><th>+ doručenie</th><th>Zisk</th><th>Zisk %</th></tr></thead>
         <tbody id="ladder"></tbody>
@@ -153,25 +158,46 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         </label>
       </div>
       <div class="row2">
-        <label for="step">Krok príhozu
-          <span class="field"><input id="step" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
-          <small>Minimálny príhoz, ktorý ukazuje aukcia.</small>
-        </label>
-        <label for="fee">Poplatok pri predaji
+        <label for="fee">Poplatok Cardmarket
           <span class="field"><input id="fee" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
-          <small>Provízia platformy, kde kartu predáš.</small>
+          <small>Provízia z predajnej ceny.</small>
+        </label>
+        <label for="step">Vlastný krok príhozu
+          <span class="field"><input id="step" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Použije sa, len keď vypneš tabuľku Aukra.</small>
         </label>
       </div>
-      <p class="note">Zisk % sa ráta z toho, koľko do karty vložíš (cena + doručenie). Nastavenia si stránka pamätá v tomto prehliadači.</p>
-      <button type="button" class="reset" id="reset">Obnoviť predvolené (4 €, 25 %, 0,50 €, 0 %)</button>
+      <label class="check" for="auto"><input id="auto" type="checkbox"> Krok príhozu podľa tabuľky Aukra</label>
+      <p class="note">Zisk % sa ráta z toho, koľko do karty vložíš (cena + doručenie), až po odpočítaní poplatku Cardmarketu. Nastavenia si stránka pamätá v tomto prehliadači.</p>
+      <button type="button" class="reset" id="reset">Obnoviť predvolené (4 €, 25 %, 5 %, tabuľka Aukra)</button>
+    </div>
+  </details>
+
+  <details>
+    <summary>Tabuľka príhozov Aukro (EUR)</summary>
+    <div class="settings">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Aktuálna cena</th><th>Minimálny príhoz</th></tr></thead>
+          <tbody id="incTable"></tbody>
+        </table>
+      </div>
+      <p class="note">Podľa pomocníka Aukra (tabuľka minimálnych príhozov). Automatické prihadzovanie vždy prihodí najmenej, koľko treba na prebitie súpera, a nikdy nad tvoj limit.</p>
     </div>
   </details>
 </main>
 
 <script>
 (function () {
-  var DEFAULTS = { ship: 4, target: 25, step: 0.5, fee: 0 };
-  var KEY = "aukro-calc-settings-v1";
+  // Aukro EUR minimum increments: [from price, increment].
+  var AUKRO = [
+    [0, 0.05], [0.25, 0.10], [0.75, 0.15], [2, 0.20], [4, 0.50], [8, 0.75],
+    [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
+    [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
+  ];
+  var DEFAULTS = { ship: 4, target: 25, fee: 5, step: 0.5, auto: true };
+  var KEY = "aukro-calc-settings-v2";
+  var NUM_KEYS = ["ship", "target", "fee", "step"];
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
   var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
@@ -182,46 +208,75 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   function fmtInput(n) { return String(n).replace(".", ","); }
   function floorCent(x) { return Math.floor(x * 100 + 1e-9) / 100; }
+  function round2(x) { return Math.round(x * 100) / 100; }
+  function aukroStep(price) {
+    var s = AUKRO[0][1];
+    for (var i = 0; i < AUKRO.length; i++) { if (price >= AUKRO[i][0] - 1e-9) s = AUKRO[i][1]; }
+    return s;
+  }
 
   function load() {
     var s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { s = {}; }
-    ["ship", "target", "step", "fee"].forEach(function (k) {
+    NUM_KEYS.forEach(function (k) {
       var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
       $(k).value = fmtInput(v);
     });
+    $("auto").checked = typeof s.auto === "boolean" ? s.auto : DEFAULTS.auto;
   }
   function save() {
-    var s = {};
-    ["ship", "target", "step", "fee"].forEach(function (k) { var v = num($(k)); if (isFinite(v)) s[k] = v; });
+    var s = { auto: $("auto").checked };
+    NUM_KEYS.forEach(function (k) { var v = num($(k)); if (isFinite(v)) s[k] = v; });
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // Core math. Exposed for a quick check.
-  function calc(current, sell, ship, target, step, fee) {
-    var net = sell * (1 - fee / 100);                 // what you actually get after selling fees
+  // Core math. stepFn(price) gives the minimum increment at that price.
+  function calc(current, sell, ship, target, fee, stepFn) {
+    var net = sell * (1 - fee / 100);                 // what you keep after the Cardmarket fee
     var maxCost = net / (1 + target / 100);           // most you may spend in total
     var limit = floorCent(maxCost - ship);            // max bid you type into Aukro
-    var next = current + step;                        // the price if you outbid now
-    var bids = step > 0 && limit >= next ? Math.floor((limit - current) / step + 1e-9) : 0;
+    var next = round2(current + stepFn(current));     // price if you outbid now
+    var prices = [], p = current;
+    while (prices.length < 2000) {
+      p = round2(p + stepFn(p));
+      if (p > limit + 1e-9) break;
+      prices.push(p);
+    }
     function profitAt(price) { var cost = price + ship; return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost }; }
-    return { net: net, limit: limit, next: next, bids: bids, profitAt: profitAt, ok: limit >= next };
+    return { net: net, feeAbs: sell - net, limit: limit, next: next, prices: prices, bids: prices.length, profitAt: profitAt, ok: next <= limit + 1e-9 };
   }
   window.aukroCalc = calc;
+  window.aukroStep = aukroStep;
 
-  function signed(el, v, text) {
-    el.textContent = text;
-    el.className = v >= 0 ? "pos" : "neg";
+  function signed(el, v, text) { el.textContent = text; el.className = v >= 0 ? "pos" : "neg"; }
+  function plural(n) { return n === 1 ? " príhoz" : (n >= 2 && n <= 4 ? " príhozy" : " príhozov"); }
+
+  function settings() {
+    var ship = num($("ship")), target = num($("target")), fee = num($("fee")), step = num($("step"));
+    if (!isFinite(ship)) ship = DEFAULTS.ship;
+    if (!isFinite(target)) target = DEFAULTS.target;
+    if (!isFinite(fee)) fee = DEFAULTS.fee;
+    if (!isFinite(step) || step <= 0) step = DEFAULTS.step;
+    var auto = $("auto").checked;
+    return { ship: ship, target: target, fee: fee, auto: auto, stepFn: auto ? aukroStep : function () { return step; } };
+  }
+
+  function renderIncTable(current) {
+    var rows = AUKRO.map(function (r, i) {
+      var to = i + 1 < AUKRO.length ? eur.format(AUKRO[i + 1][0] - 0.01) : "a viac";
+      var active = current >= r[0] - 1e-9 && (i + 1 >= AUKRO.length || current < AUKRO[i + 1][0] - 1e-9);
+      return '<tr class="' + (active ? "active" : "") + '"><td>' + eur.format(r[0]) + (i + 1 < AUKRO.length ? " až " : " ") + to +
+        "</td><td>" + eur.format(r[1]) + "</td></tr>";
+    });
+    $("incTable").innerHTML = rows.join("");
   }
 
   function render() {
     var current = num($("current")), sell = num($("sell"));
-    var ship = num($("ship")), target = num($("target")), step = num($("step")), fee = num($("fee"));
-    if (!isFinite(ship)) ship = DEFAULTS.ship;
-    if (!isFinite(target)) target = DEFAULTS.target;
-    if (!isFinite(step) || step <= 0) step = DEFAULTS.step;
-    if (!isFinite(fee)) fee = DEFAULTS.fee;
-    if (!isFinite(current)) current = 0;
+    var s = settings();
+    if (!isFinite(current) || current < 0) current = 0;
+    $("step").disabled = s.auto;
+    renderIncTable(current);
 
     var status = $("status");
     if (!isFinite(sell) || sell <= 0) {
@@ -230,53 +285,63 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       status.textContent = "Chýba predajná cena.";
       status.className = "status no";
       $("ladder").innerHTML = ""; $("ladderNote").textContent = "";
-      ["oStep", "oBids", "oShip", "oCost", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
+      ["oStep", "oBids", "oShip", "oCost", "oFee", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
       return;
     }
 
-    var r = calc(current, sell, ship, target, step, fee);
+    var r = calc(current, sell, s.ship, s.target, s.fee, s.stepFn);
     var pl = r.profitAt(r.limit), pn = r.profitAt(r.next);
+    var stepNow = s.stepFn(current);
 
-    $("limit").textContent = r.limit > 0 ? eur.format(r.limit) : eur.format(0);
-    $("heroSub").textContent = "Aukro bude prihadzovať po " + eur.format(step) + ", kým cena nedosiahne " + eur.format(Math.max(r.limit, 0)) + ".";
+    $("limit").textContent = eur.format(Math.max(r.limit, 0));
+
+    // Which increments will apply between now and the limit.
+    var steps = [];
+    [current].concat(r.prices).forEach(function (p) { var st = s.stepFn(p); if (steps.indexOf(st) < 0) steps.push(st); });
+    if (r.ok && steps.length > 1) {
+      $("heroSub").textContent = "Aukro bude prihadzovať po " + steps.map(function (x) { return eur.format(x); }).join(", potom po ") + ", kým cena nedosiahne tvoj limit.";
+    } else {
+      $("heroSub").textContent = "Aukro bude prihadzovať po " + eur.format(stepNow) + ", kým cena nedosiahne tvoj limit.";
+    }
 
     if (r.ok) {
-      status.textContent = "Oplatí sa. Máš priestor na " + r.bids + (r.bids === 1 ? " príhoz." : (r.bids < 5 ? " príhozy." : " príhozov."));
+      status.textContent = "Oplatí sa. Máš priestor na " + r.bids + plural(r.bids) + ".";
       status.className = "status ok";
     } else {
-      status.textContent = "Neprihadzuj. Už pri ďalšom príhoze (" + eur.format(r.next) + ") by si nemal " + pct.format(target) + " % zisk.";
+      status.textContent = "Neprihadzuj. Už pri ďalšom príhoze (" + eur.format(r.next) + ") by si nemal " + pct.format(s.target) + " % zisk.";
       status.className = "status no";
     }
 
-    $("oStep").textContent = eur.format(step);
+    $("oStep").textContent = eur.format(stepNow);
     $("oBids").textContent = String(r.bids);
-    $("oShip").textContent = eur.format(ship);
+    $("oShip").textContent = eur.format(s.ship);
     $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
+    $("oFeeLabel").textContent = "Poplatok Cardmarket (" + pct.format(s.fee) + " %)";
+    $("oFee").textContent = eur.format(r.feeAbs);
     signed($("oProfitLimit"), pl.abs, eur.format(pl.abs) + " (" + pct.format(pl.rel) + " %)");
     signed($("oProfitNow"), pn.abs, eur.format(pn.abs) + " (" + pct.format(pn.rel) + " %)");
 
-    // Ladder from the next bid up to the limit (plus one row past it to show where it stops paying off).
-    var rows = [], MAX = 25, price = r.next, i = 0;
-    var prices = [];
-    if (r.bids <= MAX) {
-      for (i = 0; i < r.bids; i++) prices.push(floorCent(current + step * (i + 1)));
-    } else {
-      // Too many steps: show evenly spread rows.
-      for (i = 0; i < MAX; i++) prices.push(floorCent(current + step * Math.round((i + 1) * r.bids / MAX)));
+    // Ladder: every bid step up to the limit, sampled if there are many.
+    var MAX = 25, shown = r.prices;
+    if (shown.length > MAX) {
+      shown = [];
+      for (var i = 1; i <= MAX; i++) shown.push(r.prices[Math.round(i * r.prices.length / MAX) - 1]);
     }
-    if (prices.length === 0 || prices[prices.length - 1] < r.limit) prices.push(r.limit);
-    var over = floorCent(Math.max(prices[prices.length - 1], current) + step);
-    prices.forEach(function (p) { rows.push(rowHtml(p, r, p === r.limit, false)); });
-    rows.push(rowHtml(over, r, false, true));
+    shown = shown.slice();
+    var last = shown.length ? shown[shown.length - 1] : current;
+    if (r.ok && last < r.limit - 1e-9) shown.push(r.limit);
+    var over = round2(Math.max(last, current) + s.stepFn(Math.max(last, current)));
+    var rows = shown.map(function (p) { return rowHtml(p, r, s, Math.abs(p - r.limit) < 1e-9, false); });
+    rows.push(rowHtml(over, r, s, false, true));
     $("ladder").innerHTML = rows.join("");
-    $("ladderNote").textContent = (r.bids > MAX ? "Príhozov je veľa, ukazujem len vybrané kroky. " : "") +
-      "Tučný riadok je tvoj limit. Posledný riadok je cena, pri ktorej už nemáš " + pct.format(target) + " % zisk.";
-    void price;
+    $("ladderNote").textContent = (r.prices.length > MAX ? "Príhozov je veľa, ukazujem len vybrané kroky. " : "") +
+      (r.ok ? "Tučný riadok je tvoj limit. Ak súper ponúkne viac, Aukro za teba prihodí len do tejto sumy. " : "") +
+      "Posledný riadok je cena, pri ktorej už nemáš " + pct.format(s.target) + " % zisk.";
   }
 
-  function rowHtml(p, r, isLimit, isOver) {
+  function rowHtml(p, r, s, isLimit, isOver) {
     var pr = r.profitAt(p);
-    var cls = pr.rel >= num($("target")) - 1e-9 && !isOver ? "pos" : "neg";
+    var cls = !isOver && pr.rel >= s.target - 1e-6 ? "pos" : "neg";
     return '<tr class="' + (isLimit ? "limit" : "") + '"><td>' + eur.format(p) + (isLimit ? " (limit)" : "") +
       "</td><td>" + eur.format(pr.cost) + '</td><td class="' + cls + '">' + eur.format(pr.abs) +
       '</td><td class="' + cls + '">' + pct.format(pr.rel) + " %</td></tr>";
@@ -284,9 +349,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
   load();
   ["current", "sell"].forEach(function (id) { $(id).addEventListener("input", render); });
-  ["ship", "target", "step", "fee"].forEach(function (id) { $(id).addEventListener("input", function () { save(); render(); }); });
+  NUM_KEYS.forEach(function (id) { $(id).addEventListener("input", function () { save(); render(); }); });
+  $("auto").addEventListener("change", function () { save(); render(); });
   $("reset").addEventListener("click", function () {
-    ["ship", "target", "step", "fee"].forEach(function (k) { $(k).value = fmtInput(DEFAULTS[k]); });
+    NUM_KEYS.forEach(function (k) { $(k).value = fmtInput(DEFAULTS[k]); });
+    $("auto").checked = DEFAULTS.auto;
     save(); render();
   });
   render();
