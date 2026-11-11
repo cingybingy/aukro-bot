@@ -46,7 +46,7 @@ main { max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; 
 h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.7rem; line-height: 1.15; margin: 0; text-wrap: balance; }
 .lede { margin: 4px 0 0; color: var(--muted); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 360px) { .row2 { grid-template-columns: 1fr; } }
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 0.85rem; min-width: 0; }
 label small { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
@@ -61,6 +61,8 @@ label small { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
 .field .unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
 label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 500; }
 label.check input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; flex: none; }
+.feechip { font-size: 0.8rem; color: var(--muted); padding-bottom: 6px; line-height: 1.4; }
+.feechip strong { color: var(--ink); font-weight: 600; }
 
 .hero { background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 18px 16px; display: flex; flex-direction: column; gap: 4px; }
 .hero .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
@@ -94,6 +96,7 @@ summary::after { content: "+"; font-size: 1.2rem; color: var(--muted); }
 details[open] summary::after { content: "\2212"; }
 summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 14px; }
 .settings { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.settings h3 { margin: 4px 0 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 button.reset { align-self: flex-start; font: inherit; font-size: 0.85rem; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
 button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
@@ -113,6 +116,12 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         <span class="field"><input id="sell" type="text" inputmode="decimal" autocomplete="off" value="35"><span class="unit">€</span></span>
       </label>
     </div>
+    <div class="row2">
+      <label for="ship">Poštovné
+        <span class="field"><input id="ship" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+      </label>
+      <div class="feechip" id="feeChip"></div>
+    </div>
   </section>
 
   <section class="hero" aria-live="polite">
@@ -128,8 +137,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       <dt>Limit určuje</dt><dd id="oRule"></dd>
       <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
       <dt>Počet príhozov do limitu</dt><dd id="oBids"></dd>
-      <dt>Doručenie</dt><dd id="oShip"></dd>
-      <dt>Celkový náklad pri limite</dt><dd id="oCost"></dd>
+      <dt>Poštovné</dt><dd id="oShip"></dd>
+      <dt>Poplatok Aukro pri limite</dt><dd id="oBuyFee"></dd>
+      <dt>Celkovo zaplatíš pri limite</dt><dd id="oCost"></dd>
       <dt id="oFeeLabel">Poplatok Cardmarket</dt><dd id="oFee"></dd>
       <dt>Zisk pri limite</dt><dd id="oProfitLimit"></dd>
       <dt>Zisk, ak vyhráš o 1 príhoz</dt><dd id="oProfitNow"></dd>
@@ -140,7 +150,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     <h2>Ako sa bude prihadzovať</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Cena karty</th><th>+ doručenie</th><th>Zisk</th><th>Zisk %</th></tr></thead>
+        <thead><tr><th>Cena karty</th><th>Celkovo zaplatíš</th><th>Zisk</th><th>Zisk %</th></tr></thead>
         <tbody id="ladder"></tbody>
       </table>
     </div>
@@ -150,6 +160,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   <details id="settingsBox">
     <summary>Nastavenia</summary>
     <div class="settings">
+      <h3>Zisk</h3>
       <div class="row2">
         <label for="target">Minimálny zisk v %
           <span class="field"><input id="target" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
@@ -159,13 +170,23 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         </label>
       </div>
       <p class="note">Musia platiť obe podmienky naraz. Pri lacných kartách rozhoduje suma v €, pri drahších percentá.</p>
+
+      <h3>Nákup na Aukre</h3>
       <div class="row2">
-        <label for="ship">Doručenie
-          <span class="field"><input id="ship" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        <label for="shipDefault">Predvolené poštovné
+          <span class="field"><input id="shipDefault" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Takto sa vyplní poštovné pri každom otvorení.</small>
         </label>
-        <label for="fee">Poplatok Cardmarket
-          <span class="field"><input id="fee" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
-          <small>Provízia z predajnej ceny.</small>
+        <span></span>
+      </div>
+      <div class="row2">
+        <label for="buyPct">Ochrana kupujúcich
+          <span class="field"><input id="buyPct" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+          <small>Z ceny karty.</small>
+        </label>
+        <label for="buyFix">+ pevná suma
+          <span class="field"><input id="buyFix" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Za každý nákup.</small>
         </label>
       </div>
       <div class="row2">
@@ -175,8 +196,18 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         </label>
         <label class="check" for="auto"><input id="auto" type="checkbox"> Krok príhozu podľa tabuľky Aukra</label>
       </div>
-      <p class="note">Zisk % sa ráta z toho, koľko do karty vložíš (cena + doručenie), až po odpočítaní poplatku Cardmarketu. Nastavenia si stránka pamätá v tomto prehliadači.</p>
-      <button type="button" class="reset" id="reset">Obnoviť predvolené (25 %, 2 €, doručenie 4 €, poplatok 5 %, tabuľka Aukra)</button>
+
+      <h3>Predaj na Cardmarkete</h3>
+      <div class="row2">
+        <label for="fee">Poplatok Cardmarket
+          <span class="field"><input id="fee" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+          <small>Provízia z predajnej ceny.</small>
+        </label>
+        <span></span>
+      </div>
+
+      <p class="note">Zisk % sa ráta z toho, koľko celkovo zaplatíš (cena + poštovné + poplatok Aukro), až po odpočítaní poplatku Cardmarketu. Nastavenia si stránka pamätá v tomto prehliadači.</p>
+      <button type="button" class="reset" id="reset">Obnoviť predvolené</button>
     </div>
   </details>
 
@@ -202,9 +233,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
     [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
   ];
-  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, fee: 5, step: 0.5, auto: true };
+  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, fee: 5, buyPct: 5, buyFix: 0.2, step: 0.5, auto: true };
   var KEY = "aukro-calc-settings-v2";
-  var NUM_KEYS = ["ship", "target", "minAbs", "fee", "step"];
+  // Saved setting -> settings input id.
+  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", step: "step" };
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
   var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
@@ -225,34 +257,40 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function load() {
     var s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { s = {}; }
-    NUM_KEYS.forEach(function (k) {
+    Object.keys(FIELDS).forEach(function (k) {
       var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
-      $(k).value = fmtInput(v);
+      $(FIELDS[k]).value = fmtInput(v);
     });
     $("auto").checked = typeof s.auto === "boolean" ? s.auto : DEFAULTS.auto;
+    $("ship").value = $("shipDefault").value;
   }
   function save() {
     var s = { auto: $("auto").checked };
-    NUM_KEYS.forEach(function (k) { var v = num($(k)); if (isFinite(v)) s[k] = v; });
+    Object.keys(FIELDS).forEach(function (k) { var v = num($(FIELDS[k])); if (isFinite(v)) s[k] = v; });
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // Core math. stepFn(price) gives the minimum increment at that price.
-  function calc(current, sell, ship, target, minAbs, fee, stepFn) {
-    var net = sell * (1 - fee / 100);                 // what you keep after the Cardmarket fee
-    var costByPct = net / (1 + target / 100);         // most you may spend to keep target %
-    var costByAbs = net - minAbs;                     // most you may spend to keep minAbs €
+  // Core math. o = { ship, target, minAbs, fee, buyPct, buyFix, stepFn }.
+  function calc(current, sell, o) {
+    var net = sell * (1 - o.fee / 100);               // what you keep after the Cardmarket fee
+    var costByPct = net / (1 + o.target / 100);       // most you may pay in total to keep target %
+    var costByAbs = net - o.minAbs;                   // most you may pay in total to keep minAbs €
     var maxCost = Math.min(costByPct, costByAbs);
     var rule = costByAbs < costByPct ? "abs" : "pct";
-    var limit = floorCent(maxCost - ship);            // max bid you type into Aukro
-    var next = round2(current + stepFn(current));     // price if you outbid now
+    // total paid = price + price * buyPct + buyFix + ship  =>  solve for price
+    var limit = floorCent((maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100));
+    var next = round2(current + o.stepFn(current));
     var prices = [], p = current;
     while (prices.length < 2000) {
-      p = round2(p + stepFn(p));
+      p = round2(p + o.stepFn(p));
       if (p > limit + 1e-9) break;
       prices.push(p);
     }
-    function profitAt(price) { var cost = price + ship; return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost }; }
+    function profitAt(price) {
+      var buyFee = price * o.buyPct / 100 + o.buyFix;
+      var cost = price + buyFee + o.ship;
+      return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost, buyFee: buyFee };
+    }
     return { net: net, rule: rule, feeAbs: sell - net, limit: limit, next: next, prices: prices, bids: prices.length, profitAt: profitAt, ok: next <= limit + 1e-9 };
   }
   window.aukroCalc = calc;
@@ -260,16 +298,21 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
   function signed(el, v, text) { el.textContent = text; el.className = v >= 0 ? "pos" : "neg"; }
   function plural(n) { return n === 1 ? " príhoz" : (n >= 2 && n <= 4 ? " príhozy" : " príhozov"); }
+  function val(id, dflt, positive) { var v = num($(id)); return !isFinite(v) || (positive && v <= 0) ? dflt : v; }
 
   function settings() {
-    var ship = num($("ship")), target = num($("target")), fee = num($("fee")), step = num($("step")), minAbs = num($("minAbs"));
-    if (!isFinite(ship)) ship = DEFAULTS.ship;
-    if (!isFinite(target)) target = DEFAULTS.target;
-    if (!isFinite(minAbs)) minAbs = DEFAULTS.minAbs;
-    if (!isFinite(fee)) fee = DEFAULTS.fee;
-    if (!isFinite(step) || step <= 0) step = DEFAULTS.step;
+    var step = val("step", DEFAULTS.step, true);
     var auto = $("auto").checked;
-    return { ship: ship, target: target, minAbs: minAbs, fee: fee, auto: auto, stepFn: auto ? aukroStep : function () { return step; } };
+    return {
+      ship: val("ship", val("shipDefault", DEFAULTS.ship)),
+      target: val("target", DEFAULTS.target),
+      minAbs: val("minAbs", DEFAULTS.minAbs),
+      fee: val("fee", DEFAULTS.fee),
+      buyPct: val("buyPct", DEFAULTS.buyPct),
+      buyFix: val("buyFix", DEFAULTS.buyFix),
+      auto: auto,
+      stepFn: auto ? aukroStep : function () { return step; }
+    };
   }
 
   function renderIncTable(current) {
@@ -288,6 +331,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (!isFinite(current) || current < 0) current = 0;
     $("step").disabled = s.auto;
     renderIncTable(current);
+    $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
 
     var status = $("status");
     if (!isFinite(sell) || sell <= 0) {
@@ -296,14 +340,14 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       status.textContent = "Chýba predajná cena.";
       status.className = "status no";
       $("ladder").innerHTML = ""; $("ladderNote").textContent = "";
-      ["oRule", "oStep", "oBids", "oShip", "oCost", "oFee", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
+      ["oRule", "oStep", "oBids", "oShip", "oBuyFee", "oCost", "oFee", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
       return;
     }
 
-    var r = calc(current, sell, s.ship, s.target, s.minAbs, s.fee, s.stepFn);
+    var r = calc(current, sell, s);
     var ruleText = r.rule === "abs" ? "zisk aspoň " + eur.format(s.minAbs) : "zisk aspoň " + pct.format(s.target) + " %";
     var bothText = pct.format(s.target) + " % alebo " + eur.format(s.minAbs);
-    var pl = r.profitAt(r.limit), pn = r.profitAt(r.next);
+    var pl = r.profitAt(Math.max(r.limit, 0)), pn = r.profitAt(r.next);
     var stepNow = s.stepFn(current);
 
     $("limit").textContent = eur.format(Math.max(r.limit, 0));
@@ -329,6 +373,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("oStep").textContent = eur.format(stepNow);
     $("oBids").textContent = String(r.bids);
     $("oShip").textContent = eur.format(s.ship);
+    $("oBuyFee").textContent = eur.format(pl.buyFee);
     $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
     $("oFeeLabel").textContent = "Poplatok Cardmarket (" + pct.format(s.fee) + " %)";
     $("oFee").textContent = eur.format(r.feeAbs);
@@ -350,7 +395,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("ladder").innerHTML = rows.join("");
     $("ladderNote").textContent = (r.prices.length > MAX ? "Príhozov je veľa, ukazujem len vybrané kroky. " : "") +
       (r.ok ? "Tučný riadok je tvoj limit. Ak súper ponúkne viac, Aukro za teba prihodí len do tejto sumy. " : "") +
-      "Posledný riadok je cena, pri ktorej už nemáš zisk " + bothText + ".";
+      "Posledný riadok je cena, pri ktorej už nemáš zisk " + bothText + ". Celkovo zaplatíš = cena + poplatok Aukro + poštovné.";
   }
 
   function rowHtml(p, r, s, isLimit, isOver) {
@@ -362,12 +407,18 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 
   load();
-  ["current", "sell"].forEach(function (id) { $(id).addEventListener("input", render); });
-  NUM_KEYS.forEach(function (id) { $(id).addEventListener("input", function () { save(); render(); }); });
+  ["current", "sell", "ship"].forEach(function (id) { $(id).addEventListener("input", render); });
+  Object.keys(FIELDS).forEach(function (k) {
+    $(FIELDS[k]).addEventListener("input", function () {
+      if (k === "ship") $("ship").value = $("shipDefault").value;
+      save(); render();
+    });
+  });
   $("auto").addEventListener("change", function () { save(); render(); });
   $("reset").addEventListener("click", function () {
-    NUM_KEYS.forEach(function (k) { $(k).value = fmtInput(DEFAULTS[k]); });
+    Object.keys(FIELDS).forEach(function (k) { $(FIELDS[k]).value = fmtInput(DEFAULTS[k]); });
     $("auto").checked = DEFAULTS.auto;
+    $("ship").value = $("shipDefault").value;
     save(); render();
   });
   render();
