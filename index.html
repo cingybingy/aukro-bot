@@ -622,20 +622,18 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (fin(c.sell)) return c.sell;
     return fin(c.price) ? round2(c.price * qtyOf(c) * (1 - discOf())) : null;
   }
-  // Its value as bulk, used when an edited price falls under the single-sale minimum.
-  function bulkSellOf(c) {
-    if (fin(c.bulkSell)) return c.bulkSell;
-    if (fin(c.price) && fin(c.sell) && c.price * (1 - discOf()) < singleMinOf() - 1e-9) return c.sell;
-    return round2(0.02 * qtyOf(c));
-  }
-  function editedSell(c, p) {
-    var adj = p * (1 - discOf());
-    return adj >= singleMinOf() - 1e-9 ? round2(adj * qtyOf(c)) : bulkSellOf(c);
+  // A price the viewer typed counts exactly as typed (after the condition discount), also for cheap cards:
+  // no switch to the bulk rate, so lowering a card always lowers "predám za".
+  function editedSell(c, p) { return p * (1 - discOf()) * qtyOf(c); }
+  // Claude's value of the card, unrounded where it was a single sale, so the lot total doesn't drift by cents.
+  function origExact(c) {
+    var adj = fin(c.price) ? c.price * (1 - discOf()) : null;
+    return adj != null && adj >= singleMinOf() - 1e-9 ? adj * qtyOf(c) : (origSellOf(c) || 0);
   }
   // "Predám za" for the whole lot: Claude's value with each edited card's difference applied.
   function lotSell() {
     var s = analysis.sell;
-    cards().forEach(function (c, i) { if (edited(i) && c && typeof c === "object") s += editedSell(c, prices[i]) - (origSellOf(c) || 0); });
+    cards().forEach(function (c, i) { if (edited(i) && c && typeof c === "object") s += editedSell(c, prices[i]) - origExact(c); });
     return round2(Math.max(s, 0));
   }
   // Lot value at the cheapest offers: an edited card counts at the viewer's price (they checked it).
@@ -648,7 +646,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function auctionOf(c) {
     if (!(c && typeof c === "object" && c.auction && fin(c.auction.current) && fin(c.auction.sell))) return null;
     var i = cards().indexOf(c);
-    return edited(i) ? Object.assign({}, c.auction, { sell: editedSell(c, prices[i]), altSell: null }) : c.auction;
+    return edited(i) ? Object.assign({}, c.auction, { sell: round2(editedSell(c, prices[i])), altSell: null }) : c.auction;
   }
   function hasSingles() { return cards().some(auctionOf); }
   function selAuction() { return mode === "single" ? auctionOf(cards()[selIdx]) : null; }
@@ -657,7 +655,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function sellOf(c) {
     if (!c || typeof c !== "object") return null;
     var i = cards().indexOf(c);
-    return edited(i) ? editedSell(c, prices[i]) : origSellOf(c);
+    return edited(i) ? round2(editedSell(c, prices[i])) : origSellOf(c);
   }
   function bulkCard() { return mode === "bulk" && bulkSel >= 0 && sellOf(cards()[bulkSel]) != null ? cards()[bulkSel] : null; }
   function toggleBulk(i) {
@@ -803,7 +801,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     } else if (nEdited()) {
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
         (nEdited() === 1 ? " karta" : nEdited() < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
-        "). Karty od " + eur.format(singleMinOf()) + " po −" + pct.format(discOf() * 100) + " % za stav sa rátajú zvlášť, lacnejšie ako bulk.";
+        "). Tvoje ceny sa rátajú presne, po −" + pct.format(discOf() * 100) + " % za stav. Neupravené karty pod " +
+        eur.format(singleMinOf()) + " ostávajú za bulk cenu z analýzy.";
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
         (a.mode === "single" ? ". Aukcie spolu " + eur.format(a.current) + ", jedno poštovné (ak ti predajca pošle všetko naraz)" : "") +
