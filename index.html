@@ -120,6 +120,52 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .analysis tr.sel td { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 .analysis tr.sel td.name { font-weight: 600; }
 .analysis td.v { font-weight: 600; }
+/* Sort / filter / hide toolbar over the card list. */
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tools label { font-size: 0.78rem; }
+.tools select, .tools input {
+  width: 100%; font: inherit; font-size: 0.92rem; font-weight: 600; padding: 8px 10px; border-radius: 9px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.tools select:focus, .tools input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+@media (max-width: 360px) { .tools { grid-template-columns: 1fr; } }
+.toolbar2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.toolbar2 .note { margin: 0; }
+.chipbtn { font: inherit; font-size: 0.8rem; font-weight: 600; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.chipbtn:focus-visible, .hide:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.analysis td.x { width: 1%; padding-left: 2px; padding-right: 0; }
+.hide { font: inherit; font-size: 1rem; line-height: 1; width: 28px; height: 28px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
+.hide:hover { border-color: var(--line); color: var(--bad); background: var(--bad-bg); }
+.analysis tr.ghost td { opacity: 0.45; }
+.analysis tr.ghost .hide:hover { color: var(--good); background: var(--good-bg); }
+.analysis tr.empty td { text-align: left; color: var(--muted); white-space: normal; }
+/* Editable price per card: dashed until the viewer types their own price. */
+.analysis td.pr { padding-top: 4px; padding-bottom: 4px; }
+.prin {
+  width: 4.9rem; font: inherit; font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right;
+  padding: 5px 7px; border-radius: 7px; border: 1.5px dashed var(--line); background: var(--bg); color: var(--ink);
+}
+.prin:hover { border-color: var(--muted); }
+.prin:focus { outline: none; border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.prin.edited { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+.analysis td.name small.edit { color: var(--ink); font-weight: 600; }
+@media (max-width: 420px) {
+  .analysis th, .analysis td { padding-left: 3px; padding-right: 3px; }
+  .analysis td.name { min-width: 6.5rem; }
+  .prin { width: 4rem; padding: 5px 5px; }
+}
+/* Two choices under a clicked card: load it into the calculator, or open it on Cardmarket. */
+.analysis tr.open td { background: color-mix(in srgb, var(--accent) 16%, transparent); border-bottom-color: transparent; }
+.analysis tr.acts td { text-align: left; padding: 2px 6px 10px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.acts .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.actbtn {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.88rem; font-weight: 600;
+  padding: 8px 14px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; text-decoration: none;
+}
+.actbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.actbtn:hover { border-color: var(--accent); }
+.actbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 
 <main>
@@ -141,15 +187,52 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       </select>
     </label>
     <p class="note" id="aHint" hidden>Klikni na kartu a kalkulačka ukáže jej vlastnú aukciu.</p>
+    <div class="tools" id="aTools" hidden>
+      <label for="aSort">Zoradiť
+        <select id="aSort">
+          <option value="orig">Pôvodné poradie</option>
+          <option value="price-desc">Cena karty: najdrahšie</option>
+          <option value="price-asc">Cena karty: najlacnejšie</option>
+          <option value="limit-desc" data-single>Limit: najvyšší</option>
+          <option value="room-desc" data-single>Rezerva (limit − aukcia): najväčšia</option>
+          <option value="cur-desc" data-single>Aukcia teraz: najvyššia</option>
+          <option value="cur-asc" data-single>Aukcia teraz: najnižšia</option>
+          <option value="name">Názov A–Z</option>
+        </select>
+      </label>
+      <label for="aShow">Zobraziť
+        <select id="aShow">
+          <option value="all">Všetky karty</option>
+          <option value="ok" data-single>Len ✅ oplatí sa</option>
+          <option value="no" data-single>Len ❌ neoplatí sa</option>
+        </select>
+      </label>
+      <label for="aMin">Cena karty od
+        <span class="field"><input id="aMin" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span class="unit">€</span></span>
+      </label>
+      <label for="aMax">Cena karty do
+        <span class="field"><input id="aMax" type="text" inputmode="decimal" autocomplete="off" placeholder="bez limitu"><span class="unit">€</span></span>
+      </label>
+    </div>
+    <div class="toolbar2" id="aBar" hidden>
+      <p class="note" id="aCount"></p>
+      <span>
+        <button type="button" class="chipbtn" id="aShowHidden" hidden></button>
+        <button type="button" class="chipbtn" id="aClear" hidden>Zrušiť filtre</button>
+      </span>
+    </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Karta</th><th>Ks</th><th>Cena/ks</th><th id="aLastHead">Spolu</th></tr></thead>
+        <thead><tr><th>Karta</th><th>Ks</th><th>Cena/ks</th><th id="aLastHead">Spolu</th><th aria-label="Skryť"></th></tr></thead>
         <tbody id="aCards"></tbody>
       </table>
     </div>
     <p class="note" id="aNote"></p>
     <div class="status no" id="aAlt" hidden></div>
-    <button type="button" class="reset" id="aApply" hidden>Vrátiť hodnoty z analýzy</button>
+    <div class="toolbar2">
+      <button type="button" class="reset" id="aApply" hidden>Vrátiť hodnoty z analýzy</button>
+      <button type="button" class="reset" id="aResetPrices" hidden>Zrušiť moje ceny</button>
+    </div>
   </section>
 
   <section class="panel" aria-label="Zadanie">
@@ -215,6 +298,16 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         </label>
       </div>
       <p class="note">Musia platiť obe podmienky naraz. Pri lacných kartách rozhoduje suma v €, pri drahších percentá.</p>
+      <div class="row2">
+        <label for="bigAbs">Dobrý zisk v €
+          <span class="field"><input id="bigAbs" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Od tejto sumy sa to oplatí aj pod minimálnymi %. 0 = vypnuté.</small>
+        </label>
+        <label for="bigPct">a zároveň aspoň
+          <span class="field"><input id="bigPct" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+          <small>Aby si pri drahých lotoch neriskoval veľa za málo.</small>
+        </label>
+      </div>
 
       <h3>Nákup na Aukre</h3>
       <div class="row2">
@@ -281,10 +374,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
     [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
   ];
-  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
+  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, bigAbs: 5, bigPct: 10, fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
   var KEY = "aukro-calc-settings-v2";
   // Saved setting -> settings input id.
-  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
+  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", bigAbs: "bigAbs", bigPct: "bigPct", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
   var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
@@ -326,6 +419,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var costByAbs = net - o.minAbs;                   // most you may pay in total to keep minAbs €
     var maxCost = Math.min(costByPct, costByAbs);
     var rule = costByAbs < costByPct ? "abs" : "pct";
+    // A big enough € profit is good even below target %, as long as it keeps at least bigPct % (bigAbs 0 = off).
+    var costByBig = Math.min(net - o.bigAbs, net / (1 + o.bigPct / 100));
+    if (o.bigAbs > 0 && costByBig > maxCost) { maxCost = costByBig; rule = "big"; }
     // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + fee + ship  =>  solve for price
     function buyFeeAt(price) { return Math.min(price * o.buyPct / 100 + o.buyFix, o.buyMax); }
     var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100);
@@ -359,6 +455,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       ship: val("ship", val("shipDefault", DEFAULTS.ship)),
       target: val("target", DEFAULTS.target),
       minAbs: val("minAbs", DEFAULTS.minAbs),
+      bigAbs: val("bigAbs", DEFAULTS.bigAbs),
+      bigPct: val("bigPct", DEFAULTS.bigPct),
       fee: val("fee", DEFAULTS.fee),
       buyPct: val("buyPct", DEFAULTS.buyPct),
       buyFix: val("buyFix", DEFAULTS.buyFix),
@@ -399,8 +497,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     }
 
     var r = calc(current, sell, s);
-    var ruleText = r.rule === "abs" ? "zisk aspoň " + eur.format(s.minAbs) : "zisk aspoň " + pct.format(s.target) + " %";
-    var bothText = pct.format(s.target) + " % alebo " + eur.format(s.minAbs);
+    var ruleText = r.rule === "abs" ? "zisk aspoň " + eur.format(s.minAbs)
+      : r.rule === "big" ? "zisk aspoň " + eur.format(s.bigAbs) + " a " + pct.format(s.bigPct) + " %"
+      : "zisk aspoň " + pct.format(s.target) + " %";
+    var bothText = pct.format(s.target) + " % a " + eur.format(s.minAbs) + (s.bigAbs > 0 ? " ani " + eur.format(s.bigAbs) + " a " + pct.format(s.bigPct) + " %" : "");
     var pl = r.profitAt(Math.max(r.limit, 0)), pn = r.profitAt(r.next);
     var stepNow = s.stepFn(current);
 
@@ -455,7 +555,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
   function rowHtml(p, r, s, isLimit, isOver) {
     var pr = r.profitAt(p);
-    var cls = !isOver && pr.rel >= s.target - 1e-6 && pr.abs >= s.minAbs - 1e-6 ? "pos" : "neg";
+    var good = (pr.rel >= s.target - 1e-6 && pr.abs >= s.minAbs - 1e-6) || (s.bigAbs > 0 && pr.abs >= s.bigAbs - 1e-6 && pr.rel >= s.bigPct - 1e-6);
+    var cls = !isOver && good ? "pos" : "neg";
     return '<tr class="' + (isLimit ? "limit" : "") + '"><td>' + eur.format(p) + (isLimit ? " (limit)" : "") +
       "</td><td>" + eur.format(pr.cost) + '</td><td class="' + cls + '">' + eur.format(pr.abs) +
       '</td><td class="' + cls + '">' + pct.format(pr.rel) + " %</td></tr>";
@@ -488,16 +589,134 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   var rowEls = [];
   function fin(x) { return typeof x === "number" && isFinite(x); }
   function cards() { return analysis && Array.isArray(analysis.cards) ? analysis.cards : []; }
-  function auctionOf(c) { return c && typeof c === "object" && c.auction && fin(c.auction.current) && fin(c.auction.sell) ? c.auction : null; }
+  // ---- Prices the viewer typed over Claude's (Cardmarket price per card, before the condition discount).
+  // Kept per analysis in this browser; "predám za" and every verdict are recomputed from them.
+  var prices = {};          // card index -> own price/ks
+  function pricesKey() { return "aukro-prices-" + (analysis ? String(analysis.id) : ""); }
+  function loadPrices() {
+    prices = {};
+    try {
+      var p = JSON.parse(localStorage.getItem(pricesKey()) || "{}") || {};
+      Object.keys(p).forEach(function (k) { if (fin(p[k]) && p[k] >= 0) prices[k] = p[k]; });
+      // Only the analysis on screen keeps its edited prices.
+      for (var j = localStorage.length - 1; j >= 0; j--) {
+        var key = localStorage.key(j);
+        if (key && key.indexOf("aukro-prices-") === 0 && key !== pricesKey()) localStorage.removeItem(key);
+      }
+    } catch (e) {}
+  }
+  function savePrices() {
+    try {
+      if (Object.keys(prices).length) localStorage.setItem(pricesKey(), JSON.stringify(prices));
+      else localStorage.removeItem(pricesKey());
+    } catch (e) {}
+  }
+  function edited(i) { return i >= 0 && fin(prices[i]); }
+  function nEdited() { return cards().filter(function (c, i) { return edited(i); }).length; }
+  function discOf() { return analysis && fin(analysis.disc) ? analysis.disc : 0.15; }
+  function singleMinOf() { return analysis && fin(analysis.singleMin) ? analysis.singleMin : 2; }
+  function priceOf(c, i) { return edited(i) ? prices[i] : (fin(c.price) ? c.price : null); }
+  function qtyOf(c) { return fin(c.qty) ? c.qty : 1; }
+  // What the card sells for at Claude's price (older analyses: price after the −15 % condition).
+  function origSellOf(c) {
+    if (fin(c.sell)) return c.sell;
+    return fin(c.price) ? round2(c.price * qtyOf(c) * (1 - discOf())) : null;
+  }
+  // Its value as bulk, used when an edited price falls under the single-sale minimum.
+  function bulkSellOf(c) {
+    if (fin(c.bulkSell)) return c.bulkSell;
+    if (fin(c.price) && fin(c.sell) && c.price * (1 - discOf()) < singleMinOf() - 1e-9) return c.sell;
+    return round2(0.02 * qtyOf(c));
+  }
+  function editedSell(c, p) {
+    var adj = p * (1 - discOf());
+    return adj >= singleMinOf() - 1e-9 ? round2(adj * qtyOf(c)) : bulkSellOf(c);
+  }
+  // "Predám za" for the whole lot: Claude's value with each edited card's difference applied.
+  function lotSell() {
+    var s = analysis.sell;
+    cards().forEach(function (c, i) { if (edited(i) && c && typeof c === "object") s += editedSell(c, prices[i]) - (origSellOf(c) || 0); });
+    return round2(Math.max(s, 0));
+  }
+  // Lot value at the cheapest offers: an edited card counts at the viewer's price (they checked it).
+  function lotAlt() {
+    if (!fin(analysis.altSell)) return null;
+    var cut = analysis.sell - analysis.altSell;   // sell value lost at the cheapest offers
+    cards().forEach(function (c, i) { if (c && edited(i) && fin(c.altSell) && fin(origSellOf(c))) cut -= origSellOf(c) - c.altSell; });
+    return cut > 0.005 ? round2(Math.max(lotSell() - cut, 0)) : null;
+  }
+  function auctionOf(c) {
+    if (!(c && typeof c === "object" && c.auction && fin(c.auction.current) && fin(c.auction.sell))) return null;
+    var i = cards().indexOf(c);
+    return edited(i) ? Object.assign({}, c.auction, { sell: editedSell(c, prices[i]), altSell: null }) : c.auction;
+  }
   function hasSingles() { return cards().some(auctionOf); }
   function selAuction() { return mode === "single" ? auctionOf(cards()[selIdx]) : null; }
+  // Bulk lot: a clicked card shows what the whole lot is worth to you for that card alone.
+  var bulkSel = -1;
+  function sellOf(c) {
+    if (!c || typeof c !== "object") return null;
+    var i = cards().indexOf(c);
+    return edited(i) ? editedSell(c, prices[i]) : origSellOf(c);
+  }
+  function bulkCard() { return mode === "bulk" && bulkSel >= 0 && sellOf(cards()[bulkSel]) != null ? cards()[bulkSel] : null; }
+  function toggleBulk(i) {
+    bulkSel = bulkSel === i ? -1 : i;
+    buildRows();
+    applyAnalysis();
+  }
+  // Clicked card: shows "Kalkulačka" (load it and scroll down to the numbers) and "Cardmarket" (open its page).
+  var openIdx = -1;
+  function cmUrlOf(c) {
+    if (c.cmUrl && /^https:\/\/www\.cardmarket\.com\//.test(String(c.cmUrl))) return String(c.cmUrl);
+    var q = String(c.name || "").trim();
+    return q ? "https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=" + encodeURIComponent(q) + "&language=1&minCondition=4" : null;
+  }
+  function toCalculator(i) {
+    openIdx = -1;
+    if (mode === "single") selectCard(i);
+    else { bulkSel = i; buildRows(); applyAnalysis(); }
+    var target = document.querySelector('section[aria-label="Zadanie"]');
+    if (target) {
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
+  }
+  function actionsRow(c, i, canCalc) {
+    var tr = document.createElement("tr");
+    tr.className = "acts";
+    var td = document.createElement("td");
+    td.colSpan = 5;
+    var box = document.createElement("div");
+    box.className = "btns";
+    if (canCalc) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "actbtn primary";
+      b.textContent = "Kalkulačka ↓";
+      b.setAttribute("aria-label", "Spočítať v kalkulačke: " + cardLabel(c));
+      b.addEventListener("click", function (ev) { ev.stopPropagation(); toCalculator(i); });
+      box.appendChild(b);
+    }
+    var url = cmUrlOf(c);
+    if (url) {
+      var a = document.createElement("a");
+      a.className = "actbtn"; a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = "Cardmarket ↗";
+      a.setAttribute("aria-label", "Otvoriť na Cardmarkete: " + cardLabel(c));
+      a.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      box.appendChild(a);
+    }
+    td.appendChild(box);
+    tr.appendChild(td);
+    return tr;
+  }
   function cardLabel(c) { return String(c.name || "?") + (c.num && c.num !== "–" ? " " + c.num : ""); }
   function shipFor(au) { return fin(au.ship) ? au.ship : val("shipDefault", DEFAULTS.ship); }
   // Second verdict: what if you must sell at the price of the cheapest current offers (altSell from Claude).
   function renderAlt(current, s) {
     var el = $("aAlt");
     var au = selAuction();
-    var alt = !analysis ? null : (mode === "single" ? (au && fin(au.altSell) ? au.altSell : null) : (fin(analysis.altSell) ? analysis.altSell : null));
+    var alt = !analysis || bulkCard() ? null : (mode === "single" ? (au && fin(au.altSell) ? au.altSell : null) : lotAlt());
     updateVerdicts(s);
     if (alt === null) { el.hidden = true; return; }
     var r = calc(current, alt, s);
@@ -509,26 +728,82 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
             : "neoplatí sa" + (r.limit > 0 ? ", najviac do " + eur.format(r.limit) : "") + ".") +
       " Over NM ponuky na Cardmarkete.";
   }
-  // Single mode: each row's own verdict, recomputed with the current settings.
+  // Single mode: each row's own verdict depends on the settings, so the list (its order and filter too)
+  // is rebuilt whenever the calculator re-renders.
   function updateVerdicts(s) {
-    if (mode !== "single") return;
-    rowEls.forEach(function (tr, i) {
-      var au = auctionOf(cards()[i]);
-      if (!tr || !tr._v || !au) return;
-      var o = Object.assign({}, s, { ship: shipFor(au) });
-      var r = calc(au.current, au.sell, o);
-      tr._v.textContent = r.ok ? "✅ " + eur.format(r.limit) : "❌";
-      tr._v.className = "v " + (r.ok ? "pos" : "neg");
+    if (mode === "single" && analysis) buildRows();
+  }
+
+  // ---- Sort / filter / hide. View choices are per viewer (localStorage); hidden cards per analysis.
+  var VIEW_KEY = "aukro-view-v1";
+  var view = { sort: "orig", show: "all", min: "", max: "" };
+  var hidden = {};          // card index -> true, for the analysis on screen
+  var showHidden = false;
+  function loadView() {
+    try { var v = JSON.parse(localStorage.getItem(VIEW_KEY) || "{}") || {}; Object.keys(view).forEach(function (k) { if (typeof v[k] === "string") view[k] = v[k]; }); } catch (e) {}
+    $("aSort").value = view.sort; $("aShow").value = view.show; $("aMin").value = view.min; $("aMax").value = view.max;
+    if ($("aSort").value !== view.sort) $("aSort").value = view.sort = "orig";
+    if ($("aShow").value !== view.show) $("aShow").value = view.show = "all";
+  }
+  function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch (e) {} }
+  function hiddenKey() { return "aukro-hidden-" + (analysis ? String(analysis.id) : ""); }
+  function loadHidden() {
+    hidden = {}; showHidden = false;
+    try { (JSON.parse(localStorage.getItem(hiddenKey()) || "[]") || []).forEach(function (i) { hidden[i] = true; }); } catch (e) {}
+  }
+  function saveHidden() {
+    try {
+      var list = Object.keys(hidden).filter(function (k) { return hidden[k]; }).map(Number);
+      if (list.length) localStorage.setItem(hiddenKey(), JSON.stringify(list)); else localStorage.removeItem(hiddenKey());
+    } catch (e) {}
+  }
+  function optNum(id) { var v = num($(id)); return isFinite(v) ? v : null; }
+  function syncSingleOptions() {
+    var single = mode === "single";
+    ["aSort", "aShow"].forEach(function (id) {
+      Array.prototype.forEach.call($(id).options, function (o) { if (o.hasAttribute("data-single")) o.disabled = !single; });
     });
+    var sortOpt = $("aSort").selectedOptions[0], showOpt = $("aShow").selectedOptions[0];
+    if (sortOpt && sortOpt.disabled) $("aSort").value = "orig";
+    if (showOpt && showOpt.disabled) $("aShow").value = "all";
+  }
+  // Everything the sort and filter need about one card.
+  function cardInfo(c, i, s) {
+    var au = auctionOf(c), info = { i: i, c: c, price: priceOf(c, i), au: au, r: null };
+    if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au) }));
+    return info;
+  }
+  function sortKey(info, how) {
+    var r = info.r, au = info.au;
+    switch (how) {
+      case "price-desc": return -(info.price == null ? -1 : info.price);
+      case "price-asc": return info.price == null ? Infinity : info.price;
+      case "limit-desc": return r ? -(r.ok ? r.limit : -1e6 + r.limit) : Infinity;
+      case "room-desc": return r && au ? -(r.limit - au.current) : Infinity;
+      case "cur-desc": return au ? -au.current : Infinity;
+      case "cur-asc": return au ? au.current : Infinity;
+      default: return info.i;
+    }
+  }
+  function filtersActive() {
+    return $("aSort").value !== "orig" || $("aShow").value !== "all" || optNum("aMin") != null || optNum("aMax") != null;
   }
   function updateNote() {
     if (!analysis) return;
-    var a = analysis, au = selAuction();
-    if (au) {
+    var a = analysis, au = selAuction(), bc = bulkCard();
+    if (bc) {
+      $("aNote").textContent = "Len kvôli karte " + cardLabel(bc) + " (predám za " + eur.format(sellOf(bc)) +
+        "): limit = koľko môžeš dať za celý lot, keby si predal iba túto kartu. Ostatné karty sú bonus navyše. " +
+        "Celý lot vrátiš tlačidlom „Vrátiť hodnoty z analýzy“.";
+    } else if (au) {
       var c = cards()[selIdx];
       $("aNote").textContent = "Počítam aukciu: " + cardLabel(c) + " · aukcia " + eur.format(au.current) +
         " · predám za " + eur.format(au.sell) + " · poštovné " + eur.format(shipFor(au)) +
         ". Limit v tabuľke = max. príhoz, keď kúpiš len túto kartu.";
+    } else if (nEdited()) {
+      $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
+        (nEdited() === 1 ? " karta" : nEdited() < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
+        "). Karty od " + eur.format(singleMinOf()) + " po −" + pct.format(discOf() * 100) + " % za stav sa rátajú zvlášť, lacnejšie ako bulk.";
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
         (a.mode === "single" ? ". Aukcie spolu " + eur.format(a.current) + ", jedno poštovné (ak ti predajca pošle všetko naraz)" : "") +
@@ -537,14 +812,48 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   function applyAnalysis() {
     if (!analysis) return;
-    var au = selAuction();
-    var src = au || analysis;
+    var au = selAuction(), bc = bulkCard();
+    var src = au || { current: analysis.current, sell: bc ? sellOf(bc) : lotSell(), ship: analysis.ship };
     $("current").value = fmtInput(src.current);
     $("sell").value = fmtInput(src.sell);
     $("ship").value = fin(src.ship) ? fmtInput(src.ship) : $("shipDefault").value;
     appliedThisVisit = String(analysis.id);
     updateNote();
     render();
+  }
+  // After a price edit only "Predám za" changes; the auction price and shipping the viewer typed stay.
+  function priceEdited() {
+    savePrices();
+    var au = selAuction(), bc = bulkCard();
+    $("sell").value = fmtInput(au ? au.sell : bc ? sellOf(bc) : lotSell());
+    $("aResetPrices").hidden = !nEdited();
+    buildRows();
+    updateNote();
+    render();
+  }
+  function priceInput(c, i) {
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.inputMode = "decimal"; inp.autocomplete = "off";
+    inp.className = "prin" + (edited(i) ? " edited" : "");
+    inp.dataset.pi = String(i);
+    var p = priceOf(c, i);
+    inp.value = p != null ? p.toFixed(2).replace(".", ",") : "";
+    inp.placeholder = "–";
+    inp.setAttribute("aria-label", "Cena za kus, " + cardLabel(c) + (edited(i) ? ", tvoja cena" : ", z analýzy"));
+    inp.title = "Prepíš cenu z Cardmarketu (pred −" + pct.format(discOf() * 100) + " % za stav). Vymazaním vrátiš cenu z analýzy.";
+    inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    inp.addEventListener("keydown", function (ev) { ev.stopPropagation(); if (ev.key === "Escape") { inp.value = p != null ? p.toFixed(2).replace(".", ",") : ""; inp.blur(); } });
+    inp.addEventListener("focus", function () { inp.select(); });
+    inp.addEventListener("change", function () {
+      var raw = String(inp.value).trim();
+      var v = num(inp);
+      if (raw === "" || (fin(c.price) && isFinite(v) && Math.abs(v - c.price) < 0.005)) delete prices[i];
+      else if (isFinite(v) && v >= 0) prices[i] = round2(v);
+      else { inp.value = p != null ? p.toFixed(2).replace(".", ",") : ""; return; }
+      // Rebuild after the browser has moved focus (Tab), so the focused field survives the rebuild.
+      setTimeout(priceEdited, 0);
+    });
+    return inp;
   }
   function selectCard(i) {
     selIdx = i;
@@ -554,39 +863,117 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function cell(tr, text, cls) { var td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
   function buildRows() {
     var single = mode === "single";
+    var s = settings();
+    // Keep keyboard focus on the same control of the same card across the rebuild.
+    var ae = document.activeElement, focusSel = null;
+    if (ae && ae.dataset && $("aCards").contains(ae)) {
+      ["pi", "hi", "ri"].forEach(function (k) { if (ae.dataset[k] != null) focusSel = "[data-" + k + '="' + ae.dataset[k] + '"]'; });
+    }
     $("aLastHead").textContent = single ? "Limit" : "Spolu";
-    $("aHint").hidden = !single;
+    $("aHint").textContent = (single
+      ? "Klikni na kartu: Kalkulačka spočíta jej vlastnú aukciu, Cardmarket otvorí jej ponuky."
+      : (cards().length > 1 ? "Klikni na kartu: Kalkulačka ukáže, koľko môžeš dať za celý lot len kvôli nej, Cardmarket otvorí jej ponuky."
+                            : "Klikni na kartu a otvoríš jej ponuky na Cardmarkete.")) +
+      " Cenu/ks môžeš prepísať (cena z Cardmarketu, −" + pct.format(discOf() * 100) + " % za stav sa odráta samo).";
+    $("aHint").hidden = !cards().length;
+    syncSingleOptions();
+    var how = $("aSort").value, show = $("aShow").value, lo = optNum("aMin"), hi = optNum("aMax");
+    var all = [];
+    cards().forEach(function (c, i) { if (c && typeof c === "object") all.push(cardInfo(c, i, s)); });
+    var nHidden = all.filter(function (x) { return hidden[x.i]; }).length;
+    var list = all.filter(function (x) {
+      if (hidden[x.i] && !showHidden) return false;
+      if (lo != null && (x.price == null || x.price < lo)) return false;
+      if (hi != null && (x.price == null || x.price > hi)) return false;
+      if (show === "ok" && !(x.r && x.r.ok)) return false;
+      if (show === "no" && !(x.r && !x.r.ok)) return false;
+      return true;
+    });
+    if (how === "name") list.sort(function (a, b) { return cardLabel(a.c).localeCompare(cardLabel(b.c), "sk") || a.i - b.i; });
+    else list.sort(function (a, b) { return (sortKey(a, how) - sortKey(b, how)) || a.i - b.i; });
+
     var body = $("aCards");
     body.textContent = "";
     rowEls = [];
-    cards().forEach(function (c, i) {
-      if (!c || typeof c !== "object") { rowEls.push(null); return; }
+    list.forEach(function (x) {
+      var c = x.c, i = x.i;
       var tr = document.createElement("tr");
       var qty = fin(c.qty) ? c.qty : 1;
       var name = cell(tr, cardLabel(c), "name");
+      if (edited(i)) {
+        var se = document.createElement("small"); se.className = "edit";
+        se.textContent = "✎ tvoja cena · z analýzy " + (fin(c.price) ? eur.format(c.price) : "bez ceny");
+        name.appendChild(se);
+      }
       if (c.note) { var sm = document.createElement("small"); sm.textContent = String(c.note); if (String(c.note).indexOf("⚠") === 0) sm.className = "warn"; name.appendChild(sm); }
       cell(tr, String(qty));
-      cell(tr, fin(c.price) ? eur.format(c.price) : "–");
+      cell(tr, "", "pr").appendChild(priceInput(c, i));
+      var cls = [];
       if (single) {
-        tr._v = cell(tr, "–", "v");
-        if (auctionOf(c)) {
-          tr.className = "pick" + (i === selIdx ? " sel" : "");
-          tr.tabIndex = 0;
-          tr.setAttribute("role", "button");
-          tr.setAttribute("aria-label", "Spočítať aukciu: " + cardLabel(c));
-          tr.addEventListener("click", function () { selectCard(i); });
-          tr.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectCard(i); } });
-        }
+        var v = cell(tr, "–", "v");
+        if (x.r) { v.textContent = x.r.ok ? "✅ " + eur.format(x.r.limit) : "❌"; v.className = "v " + (x.r.ok ? "pos" : "neg"); }
       } else {
-        cell(tr, fin(c.price) ? eur.format(c.price * qty) : "–");
+        cell(tr, x.price != null ? eur.format(x.price * qty) : "–");
       }
-      rowEls.push(tr);
+      var canCalc = single ? !!x.au : sellOf(c) != null && all.length > 1;
+      if (canCalc || cmUrlOf(c)) {
+        var pick = function () { openIdx = openIdx === i ? -1 : i; buildRows(); };
+        cls.push("pick");
+        if (canCalc && (single ? i === selIdx : i === bulkSel)) cls.push("sel");
+        if (i === openIdx) cls.push("open");
+        tr.tabIndex = 0;
+        tr.dataset.ri = String(i);
+        tr.setAttribute("role", "button");
+        tr.setAttribute("aria-expanded", i === openIdx ? "true" : "false");
+        tr.setAttribute("aria-label", "Možnosti pre kartu: " + cardLabel(c));
+        tr.addEventListener("click", pick);
+        tr.addEventListener("keydown", function (ev) { if (ev.target === tr && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); pick(); } });
+      }
+      if (hidden[i]) cls.push("ghost");
+      tr.className = cls.join(" ");
+      var xc = cell(tr, "", "x");
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "hide"; b.dataset.hi = String(i);
+      b.textContent = hidden[i] ? "↺" : "×";
+      b.title = hidden[i] ? "Vrátiť kartu do zoznamu" : "Skryť kartu";
+      b.setAttribute("aria-label", (hidden[i] ? "Vrátiť: " : "Skryť: ") + cardLabel(c));
+      b.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (hidden[i]) delete hidden[i]; else hidden[i] = true;
+        if (!Object.keys(hidden).length) showHidden = false;
+        saveHidden(); buildRows();
+      });
+      xc.appendChild(b);
+      rowEls[i] = tr;
       body.appendChild(tr);
+      if (i === openIdx) body.appendChild(actionsRow(c, i, canCalc));
     });
+    if (focusSel) {
+      var again = body.querySelector(focusSel);
+      if (again) again.focus({ preventScroll: true });
+    }
+    if (!list.length) {
+      var tr0 = document.createElement("tr"); tr0.className = "empty";
+      var td0 = document.createElement("td"); td0.colSpan = 5;
+      td0.textContent = "Filtru nezodpovedá žiadna karta. Zmeň filter alebo klikni na Zrušiť filtre.";
+      tr0.appendChild(td0); body.appendChild(tr0);
+    }
+
+    var many = all.length > 1;
+    $("aTools").hidden = !many;
+    $("aBar").hidden = !many;
+    var shown = list.filter(function (x) { return !hidden[x.i]; }).length;
+    $("aCount").textContent = "Zobrazené " + shown + " z " + all.length + " kariet" + (nHidden ? " · skryté " + nHidden : "");
+    $("aShowHidden").hidden = !nHidden;
+    $("aShowHidden").textContent = showHidden ? "Neukazovať skryté" : "Ukázať skryté (" + nHidden + ")";
+    $("aClear").hidden = !filtersActive();
   }
   function showAnalysis(a) {
     var fresh = String(a.id) !== appliedThisVisit;
+    var newId = !analysis || String(analysis.id) !== String(a.id);
     analysis = a;
+    if (newId) { loadHidden(); loadPrices(); }
+    $("aResetPrices").hidden = !nEdited();
     $("analysis").hidden = false;
     $("aTitle").textContent = String(a.title || "Lot");
     var when = a.created ? new Date(a.created) : null;
@@ -594,6 +981,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var singles = hasSingles();
     $("aModeWrap").hidden = !singles;
     if (fresh) {
+      bulkSel = -1;
       mode = singles && a.mode !== "bulk" ? "single" : "bulk";
       selIdx = cards().findIndex(function (c) { return !!auctionOf(c); });
     }
@@ -605,11 +993,29 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   $("aMode").addEventListener("change", function () {
     mode = $("aMode").value === "single" && hasSingles() ? "single" : "bulk";
+    bulkSel = -1;
     if (mode === "single" && !auctionOf(cards()[selIdx])) selIdx = cards().findIndex(function (c) { return !!auctionOf(c); });
     buildRows();
     applyAnalysis();
   });
-  $("aApply").addEventListener("click", applyAnalysis);
+  $("aResetPrices").addEventListener("click", function () { prices = {}; priceEdited(); });
+  $("aApply").addEventListener("click", function () {
+    if (bulkSel >= 0) { bulkSel = -1; buildRows(); }
+    applyAnalysis();
+  });
+  loadView();
+  function viewChanged() {
+    view = { sort: $("aSort").value, show: $("aShow").value, min: $("aMin").value, max: $("aMax").value };
+    saveView();
+    if (analysis) buildRows();
+  }
+  ["aSort", "aShow"].forEach(function (id) { $(id).addEventListener("change", viewChanged); });
+  ["aMin", "aMax"].forEach(function (id) { $(id).addEventListener("input", viewChanged); });
+  $("aShowHidden").addEventListener("click", function () { showHidden = !showHidden; buildRows(); });
+  $("aClear").addEventListener("click", function () {
+    $("aSort").value = "orig"; $("aShow").value = "all"; $("aMin").value = ""; $("aMax").value = "";
+    viewChanged();
+  });
 
   if (window.claude && typeof window.claude.use === "function") {
     window.claude.use("db").then(function (db) {
