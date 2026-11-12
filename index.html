@@ -190,6 +190,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       <span class="eyebrow">Analýza od Clauda</span>
       <span class="note" id="aWhen"></span>
     </div>
+    <label for="aHist" id="aHistWrap" hidden>História (posledných 7 dní)
+      <select id="aHist"></select>
+    </label>
     <h2 id="aTitle"></h2>
     <label for="aMode" id="aModeWrap" hidden>Kupujem
       <select id="aMode">
@@ -1013,6 +1016,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     buildRows();
     if (fresh) applyAnalysis(); else { updateNote(); render(); }
     $("aApply").hidden = false;
+    renderHist();
   }
   $("aMode").addEventListener("change", function () {
     mode = $("aMode").value === "single" && hasSingles() ? "single" : "bulk";
@@ -1040,13 +1044,85 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     viewChanged();
   });
 
+  // ---- History: every analysis the page sees is copied to history/<id>; anything older than 7 days is deleted.
+  var HIST_DAYS = 7, histDb = null, histList = [], histById = {}, latestDoc = null, latestId = null, archived = {}, pruned = false;
+  function validAnalysis(d) { return !!(d && fin(d.current) && fin(d.sell) && d.id != null); }
+  function tsOf(a) {
+    var t = Number(a && a.id);
+    if (!isFinite(t) || t <= 0) t = Date.parse(a && a.created);
+    return isFinite(t) ? t : 0;
+  }
+  function recent(a) { return Date.now() - tsOf(a) < HIST_DAYS * 864e5; }
+  function shortOf(a) {
+    var s = String(a.short || a.title || "").replace(/^Aukro\s*[–—-]\s*/i, "").replace(/^Pok[eé]mon\s+kart[ay]\s*/i, "").trim() || "Lot";
+    return s.length > 28 ? s.slice(0, 27) + "…" : s;
+  }
+  function histLabel(a) {
+    var d = new Date(tsOf(a));
+    var when = isNaN(d) ? "" : d.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+    var s = settings();
+    if (fin(a.ship)) s.ship = a.ship;
+    var r = calc(a.current, a.sell, s);
+    return (r.ok ? "✅ " : "❌ ") + when + " · " + shortOf(a) + " · " + eur.format(a.current) +
+      (String(a.id) === latestId ? " (najnovšia)" : "");
+  }
+  function renderHist() {
+    var sel = $("aHist"), list = histList.slice();
+    if (latestDoc && !list.some(function (x) { return String(x.id) === String(latestDoc.id); })) list.push(latestDoc);
+    list.sort(function (x, y) { return tsOf(y) - tsOf(x); });
+    histById = {};
+    sel.textContent = "";
+    list.forEach(function (a) {
+      histById[String(a.id)] = a;
+      var o = document.createElement("option");
+      o.value = String(a.id);
+      o.textContent = histLabel(a);
+      sel.appendChild(o);
+    });
+    $("aHistWrap").hidden = !list.length;
+    if (analysis) sel.value = String(analysis.id);
+  }
+  $("aHist").addEventListener("change", function () {
+    var a = histById[$("aHist").value];
+    if (a) showAnalysis(a);
+  });
+  // Copy an analysis into history once (only if it isn't there yet).
+  function archive(d) {
+    var id = String(d.id);
+    if (!histDb || archived[id] || histList.some(function (x) { return String(x.id) === id; })) return;
+    archived[id] = true;
+    var ref = histDb.collection("history").doc(id);
+    ref.get().then(function (s) {
+      if (!s.exists) return ref.set(JSON.parse(JSON.stringify(d)));
+    }).catch(function () { delete archived[id]; });
+  }
+  // Once per visit, after the store has answered: delete history older than 7 days.
+  function prune(snap) {
+    if (pruned || snap.metadata.fromCache) return;
+    pruned = true;
+    snap.docs.forEach(function (s) {
+      var a = s.data();
+      if (!a || (!recent(a) && String(a.id) !== latestId)) histDb.collection("history").doc(s.id).delete().catch(function () {});
+    });
+  }
+
   if (window.claude && typeof window.claude.use === "function") {
     window.claude.use("db").then(function (db) {
       if (!db) return;
+      histDb = db;
       db.doc("analyses/latest").onSnapshot(function (snap) {
         var d = snap.exists ? snap.data() : null;
-        if (d && fin(d.current) && fin(d.sell) && d.id != null && (!analysis || analysis.id !== d.id || analysis !== d)) showAnalysis(d);
+        if (!validAnalysis(d)) return;
+        latestDoc = d;
+        archive(d);
+        // A new analysis from Claude always takes over the screen; the same one again only refreshes the list.
+        if (String(d.id) !== latestId) { latestId = String(d.id); showAnalysis(d); } else renderHist();
       }, function () { /* no analysis available: the calculator works as before */ });
+      db.collection("history").onSnapshot(function (snap) {
+        histList = snap.docs.map(function (s) { return s.data(); }).filter(function (a) { return validAnalysis(a) && recent(a); });
+        prune(snap);
+        renderHist();
+      }, function () { /* history unavailable: only the latest analysis is shown */ });
     }).catch(function () {});
   }
 })();
