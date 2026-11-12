@@ -177,6 +177,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .actbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .actbtn:hover { border-color: var(--accent); }
 .actbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.acts .ceinfo { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); white-space: normal; }
+.acts .ceinfo strong { color: var(--ink); font-weight: 600; }
+.analysis td.cev { font-weight: 600; }
 </style>
 
 <main>
@@ -200,6 +203,24 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         <option value="bulk">Všetko spolu (bulk)</option>
       </select>
     </label>
+    <div class="row2" id="aSellToWrap" hidden>
+      <label for="aSellTo">Predám
+        <select id="aSellTo">
+          <option value="cm">Cardmarket</option>
+          <option value="ce">CardEmpire výkup</option>
+        </select>
+      </label>
+      <label for="aCeCond" id="aCeCondWrap" hidden>Stav pre výkup
+        <select id="aCeCond">
+          <option value="Near Mint">Near Mint</option>
+          <option value="Excelent">Excellent</option>
+          <option value="Good">Good</option>
+          <option value="Light Played">Light Played</option>
+          <option value="Played">Played</option>
+          <option value="Poor">Poor</option>
+        </select>
+      </label>
+    </div>
     <p class="note" id="aHint" hidden>Klikni na kartu a kalkulačka ukáže jej vlastnú aukciu.</p>
     <div class="tools" id="aTools" hidden>
       <label for="aSort">Zoradiť
@@ -471,7 +492,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       minAbs: val("minAbs", DEFAULTS.minAbs),
       bigAbs: val("bigAbs", DEFAULTS.bigAbs),
       bigPct: val("bigPct", DEFAULTS.bigPct),
-      fee: val("fee", DEFAULTS.fee),
+      fee: ceMode() ? 0 : val("fee", DEFAULTS.fee),   // selling to the shop: no Cardmarket fee
       buyPct: val("buyPct", DEFAULTS.buyPct),
       buyFix: val("buyFix", DEFAULTS.buyFix),
       buyMax: val("buyMax", DEFAULTS.buyMax, true),
@@ -497,7 +518,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     renderAlt(current, s);
     $("step").disabled = s.auto;
     renderIncTable(current);
-    $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ") a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
+    $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ")" +
+      (ceMode() ? ". Predaj do CardEmpire je <strong>bez poplatku</strong>." : " a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.");
 
     var status = $("status");
     // Green or red over the hero and the result panels, following the verdict (neutral while sell is missing).
@@ -557,7 +579,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("oShip").textContent = eur.format(s.ship);
     $("oBuyFee").textContent = eur.format(pl.buyFee);
     $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
-    $("oFeeLabel").textContent = "Poplatok Cardmarket (" + pct.format(s.fee) + " %)";
+    $("oFeeLabel").textContent = ceMode() ? "Poplatok (výkup CardEmpire)" : "Poplatok Cardmarket (" + pct.format(s.fee) + " %)";
     $("oFee").textContent = eur.format(r.feeAbs);
     signed($("oProfitLimit"), pl.abs, eur.format(pl.abs) + " (" + pct.format(pl.rel) + " %)");
     signed($("oProfitNow"), pn.abs, eur.format(pn.abs) + " (" + pct.format(pn.rel) + " %)");
@@ -616,6 +638,33 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   var rowEls = [];
   function fin(x) { return typeof x === "number" && isFinite(x); }
   function cards() { return analysis && Array.isArray(analysis.cards) ? analysis.cards : []; }
+  // ---- CardEmpire (local shop) buyout: each card carries the shop's Near Mint quote {ref, pct, tradePct};
+  // cash in a condition = ref x condition coefficient x pct. "Predám: do CardEmpire" sells everything to the
+  // shop at that price, with no Cardmarket fee. Cards the shop gave no price for count as 0.
+  var CE_COEFFS = { "Near Mint": 1, "Excelent": 0.8, "Good": 0.5, "Light Played": 0.3, "Played": 0.2, "Poor": 0.1 };
+  var CE_LABELS = { "Near Mint": "NM", "Excelent": "EX", "Good": "GD", "Light Played": "LP", "Played": "PL", "Poor": "PO" };
+  var CE_COND_KEY = "aukro-ce-cond-v1";
+  var sellTo = "cm";
+  var ceCond = null;   // viewer's condition choice (localStorage), else the analysis default
+  function ceQ(c) { return c && typeof c === "object" && c.ce && fin(c.ce.ref) && fin(c.ce.pct) ? c.ce : null; }
+  function anyCe() { return cards().some(ceQ); }
+  function ceMode() { return sellTo === "ce" && !!analysis && anyCe(); }
+  function ceCoeffs() { return analysis && analysis.ceCoeffs && typeof analysis.ceCoeffs === "object" ? analysis.ceCoeffs : CE_COEFFS; }
+  function ceCondNow() {
+    var c = ceCond || (analysis && analysis.ceCond) || "Excelent";
+    return fin(ceCoeffs()[c]) ? c : "Excelent";
+  }
+  function ceLabel(cond) { return (analysis && analysis.ceLabels && analysis.ceLabels[cond]) || CE_LABELS[cond] || cond; }
+  function ceUnit(c, cond, trade) {
+    var q = ceQ(c);
+    if (!q) return null;
+    var k = ceCoeffs()[cond || ceCondNow()];
+    return round2(q.ref * (fin(k) ? k : 1) * (trade ? (fin(q.tradePct) ? q.tradePct : q.pct) : q.pct) / 100);
+  }
+  function ceSellOf(c, trade) { var u = ceUnit(c, null, trade); return u == null ? null : round2(u * qtyOf(c)); }
+  function ceLot(trade) { return round2(cards().reduce(function (s, c) { return s + (ceSellOf(c, trade) || 0); }, 0)); }
+  function ceMissText(c) { return c && c.ce && c.ce.status ? String(c.ce.status) : "bez ceny výkupu"; }
+  try { var cc = localStorage.getItem(CE_COND_KEY); if (cc && CE_COEFFS[cc] != null) ceCond = cc; } catch (e) {}
   // ---- Prices the viewer typed over Claude's (Cardmarket price per card, before the condition discount).
   // Kept per analysis in this browser; "predám za" and every verdict are recomputed from them.
   var prices = {};          // card index -> own price/ks
@@ -659,13 +708,14 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   // "Predám za" for the whole lot: Claude's value with each edited card's difference applied.
   function lotSell() {
+    if (ceMode()) return ceLot();
     var s = analysis.sell;
     cards().forEach(function (c, i) { if (edited(i) && c && typeof c === "object") s += editedSell(c, prices[i]) - origExact(c); });
     return round2(Math.max(s, 0));
   }
   // Lot value at the cheapest offers: an edited card counts at the viewer's price (they checked it).
   function lotAlt() {
-    if (!fin(analysis.altSell)) return null;
+    if (!fin(analysis.altSell) || ceMode()) return null;
     var cut = analysis.sell - analysis.altSell;   // sell value lost at the cheapest offers
     cards().forEach(function (c, i) { if (c && edited(i) && fin(c.altSell) && fin(origSellOf(c))) cut -= origSellOf(c) - c.altSell; });
     return cut > 0.005 ? round2(Math.max(lotSell() - cut, 0)) : null;
@@ -673,6 +723,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function auctionOf(c) {
     if (!(c && typeof c === "object" && c.auction && fin(c.auction.current) && fin(c.auction.sell))) return null;
     var i = cards().indexOf(c);
+    if (ceMode()) return Object.assign({}, c.auction, { sell: ceSellOf(c) || 0, altSell: null });
     return edited(i) ? Object.assign({}, c.auction, { sell: round2(editedSell(c, prices[i])), altSell: null }) : c.auction;
   }
   function hasSingles() { return cards().some(auctionOf); }
@@ -681,6 +732,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   var bulkSel = -1;
   function sellOf(c) {
     if (!c || typeof c !== "object") return null;
+    if (ceMode()) return ceSellOf(c);
     var i = cards().indexOf(c);
     return edited(i) ? round2(editedSell(c, prices[i])) : origSellOf(c);
   }
@@ -716,11 +768,25 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     box.className = "btns";
     if (canCalc) {
       var b = document.createElement("button");
-      b.type = "button"; b.className = "actbtn primary";
+      b.type = "button"; b.className = "actbtn" + (ceMode() ? "" : " primary");
       b.textContent = "Kalkulačka ↓";
-      b.setAttribute("aria-label", "Spočítať v kalkulačke: " + cardLabel(c));
-      b.addEventListener("click", function (ev) { ev.stopPropagation(); toCalculator(i); });
+      b.setAttribute("aria-label", "Spočítať v kalkulačke s predajom na Cardmarkete: " + cardLabel(c));
+      b.addEventListener("click", function (ev) { ev.stopPropagation(); setSellTo("cm"); toCalculator(i); });
       box.appendChild(b);
+    }
+    var q = ceQ(c);
+    if (q) {
+      var bc = document.createElement("button");
+      bc.type = "button"; bc.className = "actbtn" + (ceMode() ? " primary" : "");
+      bc.textContent = "CardEmpire ↓";
+      bc.setAttribute("aria-label", "Spočítať v kalkulačke s výkupom do CardEmpire: " + cardLabel(c));
+      bc.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        setSellTo("ce");
+        if (canCalc) toCalculator(i);
+        else { openIdx = -1; buildRows(); applyAnalysis(); scrollToCalc(); }
+      });
+      box.appendChild(bc);
     }
     var url = cmUrlOf(c);
     if (url) {
@@ -732,8 +798,39 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       box.appendChild(a);
     }
     td.appendChild(box);
+    var info = document.createElement("p");
+    info.className = "ceinfo";
+    if (q) {
+      var cur = ceCondNow();
+      info.appendChild(document.createTextNode("Výkup CardEmpire za kus: "));
+      ["Near Mint", "Excelent", "Light Played"].concat(["Near Mint", "Excelent", "Light Played"].indexOf(cur) < 0 ? [cur] : [])
+        .forEach(function (k, n) {
+          if (n) info.appendChild(document.createTextNode(" · "));
+          var t = ceLabel(k) + " " + eur.format(ceUnit(c, k));
+          if (k === cur) { var st = document.createElement("strong"); st.textContent = t; info.appendChild(st); }
+          else info.appendChild(document.createTextNode(t));
+        });
+      info.appendChild(document.createTextNode(" · na výmenu (" + ceLabel(cur) + ") " + eur.format(ceUnit(c, cur, true))));
+    } else if (anyCe()) {
+      info.textContent = "CardEmpire: " + ceMissText(c) + ".";
+    }
+    if (info.firstChild) td.appendChild(info);
     tr.appendChild(td);
     return tr;
+  }
+  function scrollToCalc() {
+    var target = document.querySelector('section[aria-label="Zadanie"]');
+    if (target) {
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
+  }
+  // Switch where the cards are sold (the "Predám" select follows); the caller re-renders.
+  function setSellTo(v) {
+    sellTo = v === "ce" && anyCe() ? "ce" : "cm";
+    $("aSellTo").value = sellTo;
+    $("aCeCond").value = ceCondNow();
+    $("aCeCondWrap").hidden = sellTo !== "ce";
   }
   function cardLabel(c) { return String(c.name || "?") + (c.num && c.num !== "–" ? " " + c.num : ""); }
   function shipFor(au) { return fin(au.ship) ? au.ship : val("shipDefault", DEFAULTS.ship); }
@@ -794,7 +891,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   // Everything the sort and filter need about one card.
   function cardInfo(c, i, s) {
-    var au = auctionOf(c), info = { i: i, c: c, price: priceOf(c, i), au: au, r: null };
+    var au = auctionOf(c), info = { i: i, c: c, price: ceMode() ? ceUnit(c) : priceOf(c, i), au: au, r: null };
     if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au) }));
     return info;
   }
@@ -816,15 +913,24 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function updateNote() {
     if (!analysis) return;
     var a = analysis, au = selAuction(), bc = bulkCard();
+    var ceTxt = ceMode() ? " Predaj do CardEmpire: výkup v hotovosti, stav " + ceLabel(ceCondNow()) + ", bez poplatku Cardmarketu." : "";
+    if (ceMode() && !bc && !au) {
+      var miss = cards().filter(function (c) { return c && typeof c === "object" && !ceQ(c); }).length;
+      $("aNote").textContent = "Predám do CardEmpire za " + eur.format(ceLot()) + " (hotovosť, stav " + ceLabel(ceCondNow()) +
+        "; na výmenu za tovar " + eur.format(ceLot(true)) + ")." +
+        (miss ? " " + miss + (miss === 1 ? " položka nemá" : " položky nemajú") + " cenu výkupu, rátané 0 €." : "") +
+        " Bez poplatku Cardmarketu. Konečný stav určí obchod pri kontrole.";
+      return;
+    }
     if (bc) {
       $("aNote").textContent = "Len kvôli karte " + cardLabel(bc) + " (predám za " + eur.format(sellOf(bc)) +
         "): limit = koľko môžeš dať za celý lot, keby si predal iba túto kartu. Ostatné karty sú bonus navyše. " +
-        "Celý lot vrátiš tlačidlom „Vrátiť hodnoty z analýzy“.";
+        "Celý lot vrátiš tlačidlom „Vrátiť hodnoty z analýzy“." + ceTxt;
     } else if (au) {
       var c = cards()[selIdx];
       $("aNote").textContent = "Počítam aukciu: " + cardLabel(c) + " · aukcia " + eur.format(au.current) +
         " · predám za " + eur.format(au.sell) + " · poštovné " + eur.format(shipFor(au)) +
-        ". Limit v tabuľke = max. príhoz, keď kúpiš len túto kartu.";
+        ". Limit v tabuľke = max. príhoz, keď kúpiš len túto kartu." + ceTxt;
     } else if (nEdited()) {
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
         (nEdited() === 1 ? " karta" : nEdited() < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
@@ -900,7 +1006,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       ? "Klikni na kartu: Kalkulačka spočíta jej vlastnú aukciu, Cardmarket otvorí jej ponuky."
       : (cards().length > 1 ? "Klikni na kartu: Kalkulačka ukáže, koľko môžeš dať za celý lot len kvôli nej, Cardmarket otvorí jej ponuky."
                             : "Klikni na kartu a otvoríš jej ponuky na Cardmarkete.")) +
-      " Cenu/ks môžeš prepísať (cena z Cardmarketu, −" + pct.format(discOf() * 100) + " % za stav sa odráta samo).";
+      (anyCe() ? " CardEmpire ↓ to isté spočíta s výkupom do obchodu." : "") +
+      (ceMode() ? " Cena/ks = výkup CardEmpire v hotovosti (" + ceLabel(ceCondNow()) + ")."
+                : " Cenu/ks môžeš prepísať (cena z Cardmarketu, −" + pct.format(discOf() * 100) + " % za stav sa odráta samo).");
+    $("aSellToWrap").hidden = !anyCe();
+    $("aCeCondWrap").hidden = !ceMode();
     $("aHint").hidden = !cards().length;
     syncSingleOptions();
     var how = $("aSort").value, show = $("aShow").value, lo = optNum("aMin"), hi = optNum("aMax");
@@ -933,7 +1043,14 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       }
       if (c.note) { var sm = document.createElement("small"); sm.textContent = String(c.note); if (String(c.note).indexOf("⚠") === 0) sm.className = "warn"; name.appendChild(sm); }
       cell(tr, String(qty));
-      cell(tr, "", "pr").appendChild(priceInput(c, i));
+      if (ceMode()) {
+        // Shop's cash price in the chosen condition (not editable: it is the shop's own quote).
+        var cv = cell(tr, x.price != null ? eur.format(x.price) : "–", "cev");
+        cv.title = x.price != null ? "Výkup CardEmpire, " + ceLabel(ceCondNow()) : "CardEmpire: " + ceMissText(c);
+        if (x.price == null) { var sx = document.createElement("small"); sx.className = "warn"; sx.textContent = "CardEmpire: " + ceMissText(c); name.appendChild(sx); }
+      } else {
+        cell(tr, "", "pr").appendChild(priceInput(c, i));
+      }
       var cls = [];
       if (single) {
         var v = cell(tr, "–", "v");
@@ -1006,6 +1123,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("aWhen").textContent = when && !isNaN(when) ? when.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     var singles = hasSingles();
     $("aModeWrap").hidden = !singles;
+    if (fresh || !anyCe()) setSellTo("cm");
     if (fresh) {
       bulkSel = -1;
       mode = singles && a.mode !== "bulk" ? "single" : "bulk";
@@ -1026,6 +1144,14 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     applyAnalysis();
   });
   $("aResetPrices").addEventListener("click", function () { prices = {}; priceEdited(); });
+  // Where the cards are sold / the shop's condition: only "Predám za" changes, typed bid and shipping stay.
+  $("aSellTo").addEventListener("change", function () { setSellTo($("aSellTo").value); priceEdited(); });
+  $("aCeCond").value = ceCondNow();
+  $("aCeCond").addEventListener("change", function () {
+    ceCond = $("aCeCond").value;
+    try { localStorage.setItem(CE_COND_KEY, ceCond); } catch (e) {}
+    priceEdited();
+  });
   $("aApply").addEventListener("click", function () {
     if (bulkSel >= 0) { bulkSel = -1; buildRows(); }
     applyAnalysis();
@@ -1061,6 +1187,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var d = new Date(tsOf(a));
     var when = isNaN(d) ? "" : d.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
     var s = settings();
+    s.fee = val("fee", DEFAULTS.fee);   // history verdicts are always the Cardmarket sale from the analysis
     if (fin(a.ship)) s.ship = a.ship;
     var r = calc(a.current, a.sell, s);
     return (r.ok ? "✅ " : "❌ ") + when + " · " + shortOf(a) + " · " + eur.format(a.current) +
