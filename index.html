@@ -775,16 +775,22 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       box.appendChild(b);
     }
     var q = ceQ(c);
-    if (q) {
-      var bc = document.createElement("button");
-      bc.type = "button"; bc.className = "actbtn" + (ceMode() ? " primary" : "");
-      bc.textContent = "CardEmpire ↓";
-      bc.setAttribute("aria-label", "Spočítať v kalkulačke s výkupom do CardEmpire: " + cardLabel(c));
+    // CardEmpire: open the shop's buyout page and copy the card's exact product name for its search box
+    // (the page has no link that adds a card by itself; drafts need the viewer's account).
+    var ceSearch = c.ce && c.ce.name ? String(c.ce.name) : null;
+    if (c.ce) {
+      var bc = document.createElement("a");
+      bc.className = "actbtn"; bc.href = "https://buyout.cardempire.sk/buyout"; bc.target = "_blank"; bc.rel = "noopener noreferrer";
+      bc.textContent = "CardEmpire ↗";
+      bc.setAttribute("aria-label", "Otvoriť výkup CardEmpire a skopírovať názov karty: " + cardLabel(c));
       bc.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        setSellTo("ce");
-        if (canCalc) toCalculator(i);
-        else { openIdx = -1; buildRows(); applyAnalysis(); scrollToCalc(); }
+        var text = ceSearch || String(c.name || "");
+        copyText(text, function (ok) {
+          var el = tr.querySelector(".cecopy");
+          if (el) el.textContent = ok ? "✓ Skopírované: „" + text + "“ – vlož to na stránke do „Hľadať produkt“ a klikni na kartu."
+                                      : "Do „Hľadať produkt“ na stránke napíš: „" + text + "“.";
+        });
       });
       box.appendChild(bc);
     }
@@ -815,8 +821,31 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       info.textContent = "CardEmpire: " + ceMissText(c) + ".";
     }
     if (info.firstChild) td.appendChild(info);
+    if (c.ce) {
+      var cp = document.createElement("p");
+      cp.className = "ceinfo cecopy";
+      cp.setAttribute("aria-live", "polite");
+      if (ceSearch) cp.textContent = "CardEmpire ↗ otvorí výkup a skopíruje názov „" + ceSearch + "“ do vyhľadávania.";
+      td.appendChild(cp);
+    }
     tr.appendChild(td);
     return tr;
+  }
+  function copyText(text, done) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        done(!!ok);
+      } catch (e) { done(false); }
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+      else fallback();
+    } catch (e) { fallback(); }
   }
   function scrollToCalc() {
     var target = document.querySelector('section[aria-label="Zadanie"]');
@@ -1006,7 +1035,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       ? "Klikni na kartu: Kalkulačka spočíta jej vlastnú aukciu, Cardmarket otvorí jej ponuky."
       : (cards().length > 1 ? "Klikni na kartu: Kalkulačka ukáže, koľko môžeš dať za celý lot len kvôli nej, Cardmarket otvorí jej ponuky."
                             : "Klikni na kartu a otvoríš jej ponuky na Cardmarkete.")) +
-      (anyCe() ? " CardEmpire ↓ to isté spočíta s výkupom do obchodu." : "") +
+      (anyCe() ? " CardEmpire ↗ otvorí ich výkup s názvom karty v schránke." : "") +
       (ceMode() ? " Cena/ks = výkup CardEmpire v hotovosti (" + ceLabel(ceCondNow()) + ")."
                 : " Cenu/ks môžeš prepísať (cena z Cardmarketu, −" + pct.format(discOf() * 100) + " % za stav sa odráta samo).");
     $("aSellToWrap").hidden = !anyCe();
