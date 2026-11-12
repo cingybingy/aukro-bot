@@ -99,6 +99,15 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 .settings h3 { margin: 4px 0 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 button.reset { align-self: flex-start; font: inherit; font-size: 0.85rem; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
 button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Analysis sent by Claude (Pokemon Finder): which cards the "Predám za" value came from. */
+.analysis { gap: 10px; border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.analysis .src { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.analysis .eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.analysis h2 { min-width: 0; overflow-wrap: anywhere; }
+.analysis td.name { white-space: normal; min-width: 9rem; }
+.analysis td.name small { display: block; color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+.analysis td.name small.warn { color: var(--bad); }
 </style>
 
 <main>
@@ -106,6 +115,23 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     <h1>Aukro limit na karty</h1>
     <p class="lede">Zadaj aktuálnu cenu aukcie a za koľko kartu predáš na Cardmarkete. Ukážem ti, aký limit si nastaviť v automatickom prihadzovaní.</p>
   </header>
+
+  <section class="panel analysis" id="analysis" aria-label="Analýza od Clauda" hidden>
+    <div class="src">
+      <span class="eyebrow">Analýza od Clauda</span>
+      <span class="note" id="aWhen"></span>
+    </div>
+    <h2 id="aTitle"></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Karta</th><th>Ks</th><th>Cena/ks</th><th>Spolu</th></tr></thead>
+        <tbody id="aCards"></tbody>
+      </table>
+    </div>
+    <p class="note" id="aNote"></p>
+    <div class="status no" id="aAlt" hidden></div>
+    <button type="button" class="reset" id="aApply" hidden>Vrátiť hodnoty z analýzy</button>
+  </section>
 
   <section class="panel" aria-label="Zadanie">
     <div class="row2">
@@ -136,7 +162,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     <dl class="stats">
       <dt>Limit určuje</dt><dd id="oRule"></dd>
       <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
-      <dt>Počet príhozov do limitu</dt><dd id="oBids"></dd>
+      <dt>Tvojich príhozov do limitu</dt><dd id="oBids"></dd>
       <dt>Poštovné</dt><dd id="oShip"></dd>
       <dt>Poplatok Aukro pri limite</dt><dd id="oBuyFee"></dd>
       <dt>Celkovo zaplatíš pri limite</dt><dd id="oCost"></dd>
@@ -337,6 +363,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var current = num($("current")), sell = num($("sell"));
     var s = settings();
     if (!isFinite(current) || current < 0) current = 0;
+    renderAlt(current, s);
     $("step").disabled = s.auto;
     renderIncTable(current);
     $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ") a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
@@ -370,7 +397,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     }
 
     if (r.ok) {
-      status.textContent = "Oplatí sa. Máš priestor na " + r.bids + plural(r.bids) + ".";
+      var mine = Math.ceil(r.bids / 2); // price steps alternate between you and the other bidder
+      status.textContent = "Oplatí sa. Máš priestor asi na " + mine + plural(mine) + " od teba (súper prihadzuje medzi nimi).";
       status.className = "status ok";
     } else {
       status.textContent = "Neprihadzuj. Už pri ďalšom príhoze (" + eur.format(r.next) + ") by si nemal " + ruleText + ".";
@@ -379,7 +407,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
     $("oRule").textContent = ruleText;
     $("oStep").textContent = eur.format(stepNow);
-    $("oBids").textContent = String(r.bids);
+    $("oBids").textContent = r.bids ? "asi " + Math.ceil(r.bids / 2) + " (krokov ceny " + r.bids + ")" : "0";
     $("oShip").textContent = eur.format(s.ship);
     $("oBuyFee").textContent = eur.format(pl.buyFee);
     $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
@@ -430,5 +458,69 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     save(); render();
   });
   render();
+
+  // ---- Analysis from Claude: stored in this artifact's db at analyses/latest.
+  // Every time the page opens (and whenever a new analysis arrives) its values are filled in;
+  // the viewer may then change them freely until the page is closed.
+  var appliedThisVisit = null;
+  var analysis = null;
+  function fin(x) { return typeof x === "number" && isFinite(x); }
+  // Second verdict: what if you must sell at the price of the cheapest current offers (altSell from Claude).
+  function renderAlt(current, s) {
+    var el = $("aAlt");
+    if (!analysis || !fin(analysis.altSell)) { el.hidden = true; return; }
+    var r = calc(current, analysis.altSell, s);
+    el.hidden = false;
+    el.className = "status " + (r.ok ? "ok" : "no");
+    el.textContent = "⚠ Niekto ponúka lacnejšie. Ak by si musel predávať za cenu najlacnejších ponúk (predám za " +
+      eur.format(analysis.altSell) + "): " +
+      (r.ok ? "stále sa oplatí, limit " + eur.format(r.limit) + "."
+            : "neoplatí sa" + (r.limit > 0 ? ", najviac do " + eur.format(r.limit) : "") + ".") +
+      " Over NM ponuky na Cardmarkete.";
+  }
+  function applyAnalysis() {
+    if (!analysis) return;
+    $("current").value = fmtInput(analysis.current);
+    $("sell").value = fmtInput(analysis.sell);
+    $("ship").value = fin(analysis.ship) ? fmtInput(analysis.ship) : $("shipDefault").value;
+    appliedThisVisit = String(analysis.id);
+    render();
+  }
+  function cell(tr, text, cls) { var td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
+  function showAnalysis(a) {
+    analysis = a;
+    $("analysis").hidden = false;
+    $("aTitle").textContent = String(a.title || "Lot");
+    var when = a.created ? new Date(a.created) : null;
+    $("aWhen").textContent = when && !isNaN(when) ? when.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    var body = $("aCards");
+    body.textContent = "";
+    (Array.isArray(a.cards) ? a.cards : []).forEach(function (c) {
+      if (!c || typeof c !== "object") return;
+      var tr = document.createElement("tr");
+      var qty = fin(c.qty) ? c.qty : 1;
+      var name = cell(tr, String(c.name || "?") + (c.num && c.num !== "–" ? " " + c.num : ""), "name");
+      if (c.note) { var sm = document.createElement("small"); sm.textContent = String(c.note); if (String(c.note).indexOf("⚠") === 0) sm.className = "warn"; name.appendChild(sm); }
+      cell(tr, String(qty));
+      cell(tr, fin(c.price) ? eur.format(c.price) : "–");
+      cell(tr, fin(c.price) ? eur.format(c.price * qty) : "–");
+      body.appendChild(tr);
+    });
+    $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
+      ". Ceny z Cardmarketu, priemer predajov za 30 dní.";
+    if (String(a.id) !== appliedThisVisit) applyAnalysis(); else render();
+    $("aApply").hidden = false;
+  }
+  $("aApply").addEventListener("click", applyAnalysis);
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("db").then(function (db) {
+      if (!db) return;
+      db.doc("analyses/latest").onSnapshot(function (snap) {
+        var d = snap.exists ? snap.data() : null;
+        if (d && fin(d.current) && fin(d.sell) && d.id != null && (!analysis || analysis.id !== d.id || analysis !== d)) showAnalysis(d);
+      }, function () { /* no analysis available: the calculator works as before */ });
+    }).catch(function () {});
+  }
 })();
 </script>
