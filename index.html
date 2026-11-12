@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Aukro limit na karty</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,6 +18,8 @@
   --good-bg: #e3f4ea;
   --bad: #c23a32;
   --bad-bg: #fbe7e5;
+  --good-solid: #1d8a52;
+  --bad-solid: #c23a32;
   --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -25,6 +28,7 @@
     --bg: #12142a; --surface: #1c1f3b; --ink: #eceefa; --muted: #a2a7c8; --line: #2e3257;
     --accent: #f2c230; --accent-ink: #1b1f3a;
     --good: #5fd394; --good-bg: #173a2a; --bad: #ff8a80; --bad-bg: #44201e;
+    --good-solid: #1f7a4b; --bad-solid: #b3352e;
     color-scheme: dark;
   }
 }
@@ -32,6 +36,7 @@
   --bg: #12142a; --surface: #1c1f3b; --ink: #eceefa; --muted: #a2a7c8; --line: #2e3257;
   --accent: #f2c230; --accent-ink: #1b1f3a;
   --good: #5fd394; --good-bg: #173a2a; --bad: #ff8a80; --bad-bg: #44201e;
+  --good-solid: #1f7a4b; --bad-solid: #b3352e;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -68,6 +73,12 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); marg
 .hero .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
 .hero .big { font-family: var(--font-display); font-weight: 800; font-size: 2.6rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .hero .sub { font-size: 0.9rem; }
+/* Verdict colors the whole result: green = bid up to the limit, red = don't bid. */
+.hero.ok { background: var(--good-solid); color: #fff; }
+.hero.no { background: var(--bad-solid); color: #fff; }
+.panel.tint-ok { background: var(--good-bg); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.panel.tint-no { background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.status.ok, .status.no { border: 1px solid currentColor; }
 
 .status { border-radius: 10px; padding: 10px 12px; font-weight: 600; }
 .status.ok { background: var(--good-bg); color: var(--good); }
@@ -252,15 +263,15 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     </div>
   </section>
 
-  <section class="hero" aria-live="polite">
-    <span class="eyebrow">Nastav limit (max. príhoz)</span>
+  <section class="hero" id="hero" aria-live="polite">
+    <span class="eyebrow" id="heroEye">Nastav limit (max. príhoz)</span>
     <span class="big" id="limit">0 €</span>
     <span class="sub" id="heroSub"></span>
   </section>
 
   <div class="status" id="status"></div>
 
-  <section class="panel" aria-label="Výsledok">
+  <section class="panel" id="resultPanel" aria-label="Výsledok">
     <dl class="stats">
       <dt>Limit určuje</dt><dd id="oRule"></dd>
       <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
@@ -274,7 +285,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     </dl>
   </section>
 
-  <section class="panel" aria-label="Rebríček príhozov">
+  <section class="panel" id="ladderPanel" aria-label="Rebríček príhozov">
     <h2>Ako sa bude prihadzovať</h2>
     <div class="table-wrap">
       <table>
@@ -486,7 +497,14 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ") a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
 
     var status = $("status");
+    // Green or red over the hero and the result panels, following the verdict (neutral while sell is missing).
+    function verdictColor(v) {
+      $("hero").className = "hero" + (v ? " " + v : "");
+      $("heroEye").textContent = v === "no" ? "Tvoj limit (aukcia je už vyššie)" : "Nastav limit (max. príhoz)";
+      ["resultPanel", "ladderPanel"].forEach(function (id) { $(id).className = "panel" + (v ? " tint-" + v : ""); });
+    }
     if (!isFinite(sell) || sell <= 0) {
+      verdictColor("");
       $("limit").textContent = "?";
       $("heroSub").textContent = "Zadaj, za koľko kartu predáš.";
       status.textContent = "Chýba predajná cena.";
@@ -509,7 +527,13 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     // Which increments will apply between now and the limit.
     var steps = [];
     [current].concat(r.prices).forEach(function (p) { var st = s.stepFn(p); if (steps.indexOf(st) < 0) steps.push(st); });
-    if (r.ok && steps.length > 1) {
+    verdictColor(r.ok ? "ok" : "no");
+    if (!r.ok) {
+      $("heroSub").textContent = (current > r.limit + 1e-9
+        ? "Aukcia je už na " + eur.format(current) + ", čo je nad týmto limitom."
+        : "Ďalší príhoz by bol " + eur.format(r.next) + ", čo je nad týmto limitom.") +
+        " Tento lot sa ti oplatí len do " + eur.format(Math.max(r.limit, 0)) + ", takže neprihadzuj.";
+    } else if (steps.length > 1) {
       $("heroSub").textContent = "Aukro bude prihadzovať po " + steps.map(function (x) { return eur.format(x); }).join(", potom po ") + ", kým cena nedosiahne tvoj limit.";
     } else {
       $("heroSub").textContent = "Aukro bude prihadzovať po " + eur.format(stepNow) + ", kým cena nedosiahne tvoj limit.";
@@ -1027,3 +1051,5 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 })();
 </script>
+
+</body></html>
