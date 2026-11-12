@@ -177,7 +177,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
           <span class="field"><input id="shipDefault" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
           <small>Takto sa vyplní poštovné pri každom otvorení.</small>
         </label>
-        <span></span>
+        <label for="buyMax">Poplatok Aukro najviac
+          <span class="field"><input id="buyMax" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+          <small>Strop poplatku za jeden nákup.</small>
+        </label>
       </div>
       <div class="row2">
         <label for="buyPct">Ochrana kupujúcich
@@ -233,10 +236,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
     [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
   ];
-  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, fee: 5, buyPct: 5, buyFix: 0.2, step: 0.5, auto: true };
+  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
   var KEY = "aukro-calc-settings-v2";
   // Saved setting -> settings input id.
-  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", step: "step" };
+  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
   var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
@@ -257,6 +260,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function load() {
     var s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { s = {}; }
+    if (s.buyFix === 0.2) s.buyFix = DEFAULTS.buyFix; // old default, Aukro now shows 0,25 €
     Object.keys(FIELDS).forEach(function (k) {
       var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
       $(FIELDS[k]).value = fmtInput(v);
@@ -277,8 +281,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var costByAbs = net - o.minAbs;                   // most you may pay in total to keep minAbs €
     var maxCost = Math.min(costByPct, costByAbs);
     var rule = costByAbs < costByPct ? "abs" : "pct";
-    // total paid = price + price * buyPct + buyFix + ship  =>  solve for price
-    var limit = floorCent((maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100));
+    // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + fee + ship  =>  solve for price
+    function buyFeeAt(price) { return Math.min(price * o.buyPct / 100 + o.buyFix, o.buyMax); }
+    var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100);
+    if (buyFeeAt(limit) >= o.buyMax - 1e-9) limit = maxCost - o.ship - o.buyMax; // fee hit its cap
+    limit = floorCent(limit);
     var next = round2(current + o.stepFn(current));
     var prices = [], p = current;
     while (prices.length < 2000) {
@@ -287,7 +294,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       prices.push(p);
     }
     function profitAt(price) {
-      var buyFee = price * o.buyPct / 100 + o.buyFix;
+      var buyFee = buyFeeAt(price);
       var cost = price + buyFee + o.ship;
       return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost, buyFee: buyFee };
     }
@@ -310,6 +317,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       fee: val("fee", DEFAULTS.fee),
       buyPct: val("buyPct", DEFAULTS.buyPct),
       buyFix: val("buyFix", DEFAULTS.buyFix),
+      buyMax: val("buyMax", DEFAULTS.buyMax, true),
       auto: auto,
       stepFn: auto ? aukroStep : function () { return step; }
     };
@@ -331,7 +339,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (!isFinite(current) || current < 0) current = 0;
     $("step").disabled = s.auto;
     renderIncTable(current);
-    $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
+    $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ") a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.";
 
     var status = $("status");
     if (!isFinite(sell) || sell <= 0) {
