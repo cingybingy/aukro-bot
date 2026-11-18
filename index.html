@@ -283,8 +283,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       <label for="ship">Poštovné
         <span class="field"><input id="ship" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
       </label>
-      <div class="feechip" id="feeChip"></div>
+      <label for="premium">Prirážka kolekcie
+        <span class="field"><input id="premium" type="text" inputmode="decimal" autocomplete="off" value="0"><span class="unit">%</span></span>
+      </label>
     </div>
+    <div class="feechip" id="feeChip"></div>
   </section>
 
   <section class="hero" id="hero" aria-live="polite">
@@ -302,6 +305,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       <dt>Tvojich príhozov do limitu</dt><dd id="oBids"></dd>
       <dt>Poštovné</dt><dd id="oShip"></dd>
       <dt>Poplatok Aukro pri limite</dt><dd id="oBuyFee"></dd>
+      <dt id="oPremDt" hidden>Prirážka kolekcie pri limite</dt><dd id="oPrem" hidden></dd>
       <dt>Celkovo zaplatíš pri limite</dt><dd id="oCost"></dd>
       <dt id="oFeeLabel">Poplatok Cardmarket</dt><dd id="oFee"></dd>
       <dt>Zisk pri limite</dt><dd id="oProfitLimit"></dd>
@@ -382,7 +386,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         <span></span>
       </div>
 
-      <p class="note">Zisk % sa ráta z toho, koľko celkovo zaplatíš (cena + poštovné + poplatok Aukro), až po odpočítaní poplatku Cardmarketu. Nastavenia si stránka pamätá v tomto prehliadači.</p>
+      <p class="note">Zisk % sa ráta z toho, koľko celkovo zaplatíš (cena + poštovné + poplatok Aukro + prirážka kolekcie, ak ju aukcia má), až po odpočítaní poplatku Cardmarketu. Nastavenia si stránka pamätá v tomto prehliadači.</p>
       <button type="button" class="reset" id="reset">Obnoviť predvolené</button>
     </div>
   </details>
@@ -447,8 +451,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // Core math. o = { ship, target, minAbs, fee, buyPct, buyFix, stepFn }.
+  // Core math. o = { ship, target, minAbs, fee, buyPct, buyFix, premium, stepFn }.
+  // premium = "Kolekcia aukcií" surcharge in % of the final price, paid by the winner on top of the bid
+  // (the Aukro buyer fee is taken from the bid itself).
   function calc(current, sell, o) {
+    var prem = (typeof o.premium === "number" && isFinite(o.premium) && o.premium > 0 ? o.premium : 0) / 100;
     var net = sell * (1 - o.fee / 100);               // what you keep after the Cardmarket fee
     var costByPct = net / (1 + o.target / 100);       // most you may pay in total to keep target %
     var costByAbs = net - o.minAbs;                   // most you may pay in total to keep minAbs €
@@ -457,10 +464,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     // A big enough € profit is good even below target %, as long as it keeps at least bigPct % (bigAbs 0 = off).
     var costByBig = Math.min(net - o.bigAbs, net / (1 + o.bigPct / 100));
     if (o.bigAbs > 0 && costByBig > maxCost) { maxCost = costByBig; rule = "big"; }
-    // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + fee + ship  =>  solve for price
+    // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + surcharge + fee + ship  =>  solve for price
     function buyFeeAt(price) { return Math.min(price * o.buyPct / 100 + o.buyFix, o.buyMax); }
-    var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100);
-    if (buyFeeAt(limit) >= o.buyMax - 1e-9) limit = maxCost - o.ship - o.buyMax; // fee hit its cap
+    var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100 + prem);
+    if (buyFeeAt(limit) >= o.buyMax - 1e-9) limit = (maxCost - o.ship - o.buyMax) / (1 + prem); // fee hit its cap
     limit = floorCent(limit);
     var next = round2(current + o.stepFn(current));
     var prices = [], p = current;
@@ -471,8 +478,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     }
     function profitAt(price) {
       var buyFee = buyFeeAt(price);
-      var cost = price + buyFee + o.ship;
-      return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost, buyFee: buyFee };
+      var premAbs = price * prem;
+      var cost = price + premAbs + buyFee + o.ship;
+      return { abs: net - cost, rel: cost > 0 ? (net - cost) / cost * 100 : 0, cost: cost, buyFee: buyFee, premAbs: premAbs };
     }
     return { net: net, rule: rule, feeAbs: sell - net, limit: limit, next: next, prices: prices, bids: prices.length, profitAt: profitAt, ok: next <= limit + 1e-9 };
   }
@@ -496,6 +504,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       buyPct: val("buyPct", DEFAULTS.buyPct),
       buyFix: val("buyFix", DEFAULTS.buyFix),
       buyMax: val("buyMax", DEFAULTS.buyMax, true),
+      premium: Math.max(val("premium", 0), 0),
       auto: auto,
       stepFn: auto ? aukroStep : function () { return step; }
     };
@@ -519,7 +528,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("step").disabled = s.auto;
     renderIncTable(current);
     $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ")" +
+      (s.premium > 0 ? ", prirážka kolekcie <strong>" + pct.format(s.premium) + " %</strong> z konečnej ceny" : "") +
       (ceMode() ? ". Predaj do CardEmpire je <strong>bez poplatku</strong>." : " a na Cardmarkete <strong>" + pct.format(s.fee) + " %</strong>.");
+    $("oPremDt").hidden = $("oPrem").hidden = !(s.premium > 0);
 
     var status = $("status");
     // Green or red over the hero and the result panels, following the verdict (neutral while sell is missing).
@@ -535,7 +546,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       status.textContent = "Chýba predajná cena.";
       status.className = "status no";
       $("ladder").innerHTML = ""; $("ladderNote").textContent = "";
-      ["oRule", "oStep", "oBids", "oShip", "oBuyFee", "oCost", "oFee", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
+      ["oRule", "oStep", "oBids", "oShip", "oBuyFee", "oPrem", "oCost", "oFee", "oProfitLimit", "oProfitNow"].forEach(function (id) { $(id).textContent = "-"; $(id).className = ""; });
       return;
     }
 
@@ -578,6 +589,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("oBids").textContent = r.bids ? "asi " + Math.ceil(r.bids / 2) + " (krokov ceny " + r.bids + ")" : "0";
     $("oShip").textContent = eur.format(s.ship);
     $("oBuyFee").textContent = eur.format(pl.buyFee);
+    $("oPrem").textContent = eur.format(pl.premAbs) + " (" + pct.format(s.premium) + " %)";
     $("oCost").textContent = eur.format(Math.max(pl.cost, 0));
     $("oFeeLabel").textContent = ceMode() ? "Poplatok (výkup CardEmpire)" : "Poplatok Cardmarket (" + pct.format(s.fee) + " %)";
     $("oFee").textContent = eur.format(r.feeAbs);
@@ -599,7 +611,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     $("ladder").innerHTML = rows.join("");
     $("ladderNote").textContent = (r.prices.length > MAX ? "Príhozov je veľa, ukazujem len vybrané kroky. " : "") +
       (r.ok ? "Tučný riadok je tvoj limit. Ak súper ponúkne viac, Aukro za teba prihodí len do tejto sumy. " : "") +
-      "Posledný riadok je cena, pri ktorej už nemáš zisk " + bothText + ". Celkovo zaplatíš = cena + poplatok Aukro + poštovné.";
+      "Posledný riadok je cena, pri ktorej už nemáš zisk " + bothText + ". Celkovo zaplatíš = cena + " + (s.premium > 0 ? "prirážka kolekcie + " : "") + "poplatok Aukro + poštovné.";
   }
 
   function rowHtml(p, r, s, isLimit, isOver) {
@@ -612,7 +624,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 
   load();
-  ["current", "sell", "ship"].forEach(function (id) { $(id).addEventListener("input", render); });
+  ["current", "sell", "ship", "premium"].forEach(function (id) { $(id).addEventListener("input", render); });
   Object.keys(FIELDS).forEach(function (k) {
     $(FIELDS[k]).addEventListener("input", function () {
       if (k === "ship") $("ship").value = $("shipDefault").value;
@@ -863,6 +875,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   function cardLabel(c) { return String(c.name || "?") + (c.num && c.num !== "–" ? " " + c.num : ""); }
   function shipFor(au) { return fin(au.ship) ? au.ship : val("shipDefault", DEFAULTS.ship); }
+  function premFor(au) { return au && fin(au.premium) ? au.premium : 0; }
   // Second verdict: what if you must sell at the price of the cheapest current offers (altSell from Claude).
   function renderAlt(current, s) {
     var el = $("aAlt");
@@ -921,7 +934,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   // Everything the sort and filter need about one card.
   function cardInfo(c, i, s) {
     var au = auctionOf(c), info = { i: i, c: c, price: ceMode() ? ceUnit(c) : priceOf(c, i), au: au, r: null };
-    if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au) }));
+    if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au), premium: premFor(au) }));
     return info;
   }
   function sortKey(info, how) {
@@ -959,6 +972,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       var c = cards()[selIdx];
       $("aNote").textContent = "Počítam aukciu: " + cardLabel(c) + " · aukcia " + eur.format(au.current) +
         " · predám za " + eur.format(au.sell) + " · poštovné " + eur.format(shipFor(au)) +
+        (premFor(au) > 0 ? " · prirážka kolekcie " + pct.format(premFor(au)) + " %" : "") +
         ". Limit v tabuľke = max. príhoz, keď kúpiš len túto kartu." + ceTxt;
     } else if (nEdited()) {
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
@@ -974,10 +988,11 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function applyAnalysis() {
     if (!analysis) return;
     var au = selAuction(), bc = bulkCard();
-    var src = au || { current: analysis.current, sell: bc ? sellOf(bc) : lotSell(), ship: analysis.ship };
+    var src = au || { current: analysis.current, sell: bc ? sellOf(bc) : lotSell(), ship: analysis.ship, premium: analysis.premium };
     $("current").value = fmtInput(src.current);
     $("sell").value = fmtInput(src.sell);
     $("ship").value = fin(src.ship) ? fmtInput(src.ship) : $("shipDefault").value;
+    $("premium").value = fmtInput(premFor(src));
     appliedThisVisit = String(analysis.id);
     updateNote();
     render();
@@ -1218,6 +1233,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var s = settings();
     s.fee = val("fee", DEFAULTS.fee);   // history verdicts are always the Cardmarket sale from the analysis
     if (fin(a.ship)) s.ship = a.ship;
+    s.premium = premFor(a);
     var r = calc(a.current, a.sell, s);
     return (r.ok ? "✅ " : "❌ ") + when + " · " + shortOf(a) + " · " + eur.format(a.current) +
       (String(a.id) === latestId ? " (najnovšia)" : "");
