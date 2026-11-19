@@ -180,12 +180,26 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .acts .ceinfo { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); white-space: normal; }
 .acts .ceinfo strong { color: var(--ink); font-weight: 600; }
 .analysis td.cev { font-weight: 600; }
+/* Short warning chips under a card's name; the full note shows when the card is clicked. */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.chip { display: inline-block; font-size: 0.74rem; font-weight: 600; line-height: 1.3; padding: 2px 7px; border-radius: 999px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); white-space: nowrap; }
+.chip.warn { background: var(--bad-bg); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+.chip.guess { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); border-color: var(--accent); }
+.chip.edit { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); }
+.acts .fullnote { margin: 8px 0 0; font-size: 0.82rem; color: var(--ink); white-space: normal; }
+/* Result: two key rows visible, the rest folded under "Podrobnosti". */
+details.more { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; margin-top: 2px; }
+details.more summary { padding: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+details.more summary::after { content: "\25B8"; font-size: 0.9rem; }
+details.more[open] summary::after { content: "\25BE"; }
+details.more dl.stats { margin-top: 10px; }
+dl.stats.key dd { font-size: 1.05rem; }
 </style>
 
 <main>
   <header>
     <h1>Aukro limit na karty</h1>
-    <p class="lede">Zadaj aktuálnu cenu aukcie a za koľko kartu predáš na Cardmarkete. Ukážem ti, aký limit si nastaviť v automatickom prihadzovaní.</p>
   </header>
 
   <section class="panel analysis" id="analysis" aria-label="Analýza od Clauda" hidden>
@@ -287,7 +301,6 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
         <span class="field"><input id="premium" type="text" inputmode="decimal" autocomplete="off" value="0"><span class="unit">%</span></span>
       </label>
     </div>
-    <div class="feechip" id="feeChip"></div>
   </section>
 
   <section class="hero" id="hero" aria-live="polite">
@@ -299,18 +312,23 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   <div class="status" id="status"></div>
 
   <section class="panel" id="resultPanel" aria-label="Výsledok">
-    <dl class="stats">
-      <dt>Limit určuje</dt><dd id="oRule"></dd>
-      <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
-      <dt>Tvojich príhozov do limitu</dt><dd id="oBids"></dd>
-      <dt>Poštovné</dt><dd id="oShip"></dd>
-      <dt>Poplatok Aukro pri limite</dt><dd id="oBuyFee"></dd>
-      <dt id="oPremDt" hidden>Prirážka kolekcie pri limite</dt><dd id="oPrem" hidden></dd>
+    <dl class="stats key">
       <dt>Celkovo zaplatíš pri limite</dt><dd id="oCost"></dd>
-      <dt id="oFeeLabel">Poplatok Cardmarket</dt><dd id="oFee"></dd>
       <dt>Zisk pri limite</dt><dd id="oProfitLimit"></dd>
-      <dt>Zisk, ak vyhráš o 1 príhoz</dt><dd id="oProfitNow"></dd>
     </dl>
+    <details class="more">
+      <summary>Podrobnosti</summary>
+      <dl class="stats">
+        <dt>Limit určuje</dt><dd id="oRule"></dd>
+        <dt>Teraz sa prihadzuje po</dt><dd id="oStep"></dd>
+        <dt>Tvojich príhozov do limitu</dt><dd id="oBids"></dd>
+        <dt>Poštovné</dt><dd id="oShip"></dd>
+        <dt>Poplatok Aukro pri limite</dt><dd id="oBuyFee"></dd>
+        <dt id="oPremDt" hidden>Prirážka kolekcie pri limite</dt><dd id="oPrem" hidden></dd>
+        <dt id="oFeeLabel">Poplatok Cardmarket</dt><dd id="oFee"></dd>
+        <dt>Zisk, ak vyhráš o 1 príhoz</dt><dd id="oProfitNow"></dd>
+      </dl>
+    </details>
   </section>
 
   <section class="panel" id="ladderPanel" aria-label="Rebríček príhozov">
@@ -327,6 +345,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   <details id="settingsBox">
     <summary>Nastavenia</summary>
     <div class="settings">
+      <div class="feechip" id="feeChip"></div>
       <h3>Zisk</h3>
       <div class="row2">
         <label for="target">Minimálny zisk v %
@@ -566,13 +585,10 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     verdictColor(r.ok ? "ok" : "no");
     if (!r.ok) {
       $("heroSub").textContent = (current > r.limit + 1e-9
-        ? "Aukcia je už na " + eur.format(current) + ", čo je nad týmto limitom."
-        : "Ďalší príhoz by bol " + eur.format(r.next) + ", čo je nad týmto limitom.") +
-        " Tento lot sa ti oplatí len do " + eur.format(Math.max(r.limit, 0)) + ", takže neprihadzuj.";
-    } else if (steps.length > 1) {
-      $("heroSub").textContent = "Aukro bude prihadzovať po " + steps.map(function (x) { return eur.format(x); }).join(", potom po ") + ", kým cena nedosiahne tvoj limit.";
+        ? "Aukcia je už na " + eur.format(current)
+        : "Ďalší príhoz by bol " + eur.format(r.next)) + " – nad limitom, neprihadzuj.";
     } else {
-      $("heroSub").textContent = "Aukro bude prihadzovať po " + eur.format(stepNow) + ", kým cena nedosiahne tvoj limit.";
+      $("heroSub").textContent = "Príhozy po " + steps.map(function (x) { return eur.format(x); }).join(" → ");
     }
 
     if (r.ok) {
@@ -831,6 +847,7 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       box.appendChild(a);
     }
     td.appendChild(box);
+    if (c.note) { var fn = document.createElement("p"); fn.className = "fullnote"; fn.textContent = String(c.note); td.appendChild(fn); }
     var info = document.createElement("p");
     info.className = "ceinfo";
     if (q) {
@@ -852,11 +869,33 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       var cp = document.createElement("p");
       cp.className = "ceinfo cecopy";
       cp.setAttribute("aria-live", "polite");
-      if (ceSearch) cp.textContent = "CardEmpire ↗ otvorí výkup a skopíruje názov „" + ceSearch + "“ do vyhľadávania.";
       td.appendChild(cp);
     }
     tr.appendChild(td);
     return tr;
+  }
+  // A card's note (parts joined by "; " in Pokemon Finder) as a few short chips; the full text is shown on click.
+  function noteChips(note) {
+    var out = [];
+    String(note || "").split(/;\s+/).forEach(function (p) {
+      p = p.trim(); if (!p) return;
+      var m, warn = p.indexOf("⚠") === 0;
+      if (/^❓/.test(p)) out.push({ t: "❓ odhad", k: "guess" });
+      else if ((m = p.match(/ponuky už od ([\d\s,.]+\s?€)/))) out.push({ t: "⚠ ponuky od " + m[1].trim(), k: "warn" });
+      else if ((m = p.match(/30d ([\d\s,.]+\s?€) nafúknutý/))) out.push({ t: "znížené z " + m[1].trim(), k: "" });
+      else if (/skreslené, použitý 7d/.test(p)) out.push({ t: "7d cena", k: "" });
+      else if ((m = p.match(/cena rastie, 7d: ([\d\s,.]+\s?€)/))) out.push({ t: "↗ rastie, 7d " + m[1].trim(), k: "warn" });
+      else if ((m = p.match(/najlacnejšia ponuka len ([\d\s,.]+\s?€)/))) out.push({ t: "⚠ ponuka len " + m[1].trim(), k: "warn" });
+      else if (/viac verzií/.test(p)) out.push({ t: "⚠ viac verzií", k: "warn" });
+      else if (/≫ TCGplayer/.test(p)) out.push({ t: "⚠ možno iný produkt", k: "warn" });
+      else if (/cena z TCGplayer/.test(p)) out.push({ t: "⚠ cena z TCGplayer", k: "warn" });
+      else if (/cena chýba/.test(p)) out.push({ t: "⚠ cena chýba", k: "warn" });
+      else if ((m = p.match(/^rozpätie (.+)$/))) out.push({ t: "rozpätie " + m[1], k: "" });
+      else if (warn) out.push({ t: p.length > 28 ? "⚠ over" : p, k: "warn" });
+      else if (/^cena z |^cena zadaná/.test(p)) return;   // price source: only in the full note
+      else if (p.length <= 24) out.push({ t: p, k: "" });
+    });
+    return out;
   }
   function copyText(text, done) {
     function fallback() {
@@ -901,11 +940,9 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     var r = calc(current, alt, s);
     el.hidden = false;
     el.className = "status " + (r.ok ? "ok" : "no");
-    el.textContent = "⚠ Niekto ponúka lacnejšie. Ak by si musel predávať za cenu najlacnejších ponúk (predám za " +
-      eur.format(alt) + "): " +
-      (r.ok ? "stále sa oplatí, limit " + eur.format(r.limit) + "."
-            : "neoplatí sa" + (r.limit > 0 ? ", najviac do " + eur.format(r.limit) : "") + ".") +
-      " Over NM ponuky na Cardmarkete.";
+    el.textContent = "⚠ Za cenu najlacnejších ponúk (" + eur.format(alt) + "): " +
+      (r.ok ? "oplatí sa, limit " + eur.format(r.limit)
+            : "neoplatí sa" + (r.limit > 0 ? ", najviac do " + eur.format(r.limit) : ""));
   }
   // Single mode: each row's own verdict depends on the settings, so the list (its order and filter too)
   // is rebuilt whenever the calculator re-renders.
@@ -1061,14 +1098,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       ["pi", "hi", "ri"].forEach(function (k) { if (ae.dataset[k] != null) focusSel = "[data-" + k + '="' + ae.dataset[k] + '"]'; });
     }
     $("aLastHead").textContent = single ? "Limit" : "Spolu";
-    $("aHint").textContent = (single
-      ? "Klikni na kartu: Kalkulačka spočíta jej vlastnú aukciu, Cardmarket otvorí jej ponuky."
-      : (cards().length > 1 ? "Klikni na kartu: Kalkulačka ukáže, koľko môžeš dať za celý lot len kvôli nej, Cardmarket otvorí jej ponuky."
-                            : "Klikni na kartu a otvoríš jej ponuky na Cardmarkete.")) +
-      (cards().some(function (c) { return aukroUrlOf(c); }) ? " Aukro ↗ znovu otvorí aukciu." : "") +
-      (anyCe() ? " CardEmpire ↗ otvorí ich výkup s názvom karty v schránke." : "") +
-      (ceMode() ? " Cena/ks = výkup CardEmpire v hotovosti (" + ceLabel(ceCondNow()) + ")."
-                : " Cenu/ks môžeš prepísať (cena z Cardmarketu, −" + pct.format(discOf() * 100) + " % za stav sa odráta samo).");
+    $("aHint").textContent = "Klikni na kartu · " +
+      (ceMode() ? "cena/ks = výkup CardEmpire (" + ceLabel(ceCondNow()) + ")" : "cenu/ks môžeš prepísať");
     $("aSellToWrap").hidden = !anyCe();
     $("aCeCondWrap").hidden = !ceMode();
     $("aHint").hidden = !cards().length;
@@ -1096,12 +1127,17 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       var tr = document.createElement("tr");
       var qty = fin(c.qty) ? c.qty : 1;
       var name = cell(tr, cardLabel(c), "name");
-      if (edited(i)) {
-        var se = document.createElement("small"); se.className = "edit";
-        se.textContent = "✎ tvoja cena · z analýzy " + (fin(c.price) ? eur.format(c.price) : "bez ceny");
-        name.appendChild(se);
+      var chipList = noteChips(c.note);
+      if (edited(i)) chipList.unshift({ t: "✎ tvoja cena (bolo " + (fin(c.price) ? eur.format(c.price) : "–") + ")", k: "edit" });
+      if (chipList.length) {
+        var chips = document.createElement("span"); chips.className = "chips";
+        chipList.forEach(function (ch) {
+          var sp = document.createElement("span"); sp.className = "chip" + (ch.k ? " " + ch.k : ""); sp.textContent = ch.t;
+          chips.appendChild(sp);
+        });
+        if (c.note) chips.title = String(c.note);
+        name.appendChild(chips);
       }
-      if (c.note) { var sm = document.createElement("small"); sm.textContent = String(c.note); if (String(c.note).indexOf("⚠") === 0) sm.className = "warn"; name.appendChild(sm); }
       cell(tr, String(qty));
       if (ceMode()) {
         // Shop's cash price in the chosen condition (not editable: it is the shop's own quote).
