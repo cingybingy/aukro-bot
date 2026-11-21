@@ -195,6 +195,70 @@ details.more summary::after { content: "\25B8"; font-size: 0.9rem; }
 details.more[open] summary::after { content: "\25BE"; }
 details.more dl.stats { margin-top: 10px; }
 dl.stats.key dd { font-size: 1.05rem; }
+
+/* Folders: every auction Claude sent is a folder, grouped by the day it was analysed. Open = calculator. */
+.explorer { gap: 14px; }
+.exhead { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.exday { display: flex; flex-direction: column; gap: 8px; }
+.exday > h3 { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.exgroup { border: 1px dashed var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.exgroup .gh { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.exgroup .gt { font-size: 0.85rem; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.exgroup .gt small { font-weight: 400; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+@media (max-width: 420px) { .exgroup { padding: 8px; } .explorer { padding: 14px 12px; } }
+.tile {
+  position: relative; display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: left;
+  font: inherit; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px;
+  padding: 10px 10px 9px; cursor: pointer; -webkit-touch-callout: none;
+}
+.tile:hover { border-color: var(--accent); }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile .ico { display: block; width: 30px; height: 25px; color: var(--accent); }
+.tile.ok .ico { color: var(--good); }
+.tile.no .ico { color: var(--bad); }
+.tile .ico svg { width: 100%; height: 100%; fill: currentColor; }
+.tile .t { font-weight: 600; font-size: 0.88rem; line-height: 1.3; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile .m { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.35; }
+.tile .m .v { font-weight: 600; white-space: nowrap; }
+.tile .m .v.ok { color: var(--good); }
+.tile .m .v.no { color: var(--bad); }
+.tile.ended { opacity: 0.62; }
+.tile .new { position: absolute; top: 9px; right: 9px; font-size: 0.68rem; font-weight: 700; line-height: 1.4;
+  padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.exempty { color: var(--muted); margin: 0; }
+.exfoot { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+/* Quick stats on hover (keyboard focus, or a long press on touch). */
+.tip {
+  position: fixed; z-index: 30; width: max-content; min-width: min(250px, calc(100vw - 16px)); max-width: min(330px, calc(100vw - 16px));
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(10, 12, 30, 0.22); padding: 12px 14px; font-size: 0.82rem; pointer-events: none;
+}
+.tip .tt { font-weight: 600; font-size: 0.9rem; overflow-wrap: anywhere; }
+.tip .tv { margin-top: 4px; font-weight: 600; }
+.tip .tv.ok { color: var(--good); }
+.tip .tv.no { color: var(--bad); }
+.tip dl { margin: 8px 0 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; }
+.tip dt { color: var(--muted); }
+.tip dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* Path bar over an open folder: back to the folders. */
+.crumb {
+  position: sticky; top: 8px; z-index: 10; display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px 6px 6px 8px;
+  box-shadow: 0 4px 14px rgba(10, 12, 30, 0.08);
+}
+.crumb .home { font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: transparent; border: 0;
+  padding: 6px 6px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.crumb .home svg { width: 18px; height: 15px; fill: currentColor; }
+.crumb .home:hover { color: var(--ink); background: var(--bg); }
+.crumb .sep { color: var(--muted); flex: none; }
+.crumb .path { flex: 1; min-width: 0; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumb .closebtn { font: inherit; font-size: 0.85rem; font-weight: 600; padding: 7px 12px; border-radius: 9px; flex: none;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.crumb .closebtn:hover { border-color: var(--accent); }
+.crumb button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#calcWrap { display: contents; }
 </style>
 
 <main>
@@ -202,14 +266,31 @@ dl.stats.key dd { font-size: 1.05rem; }
     <h1>Aukro limit na karty</h1>
   </header>
 
+  <section class="panel explorer" id="explorer" aria-label="Aukcie" hidden>
+    <div class="exhead">
+      <h2>Aukcie</h2>
+      <span class="note" id="exCount"></span>
+    </div>
+    <div id="exList"></div>
+    <div class="exfoot">
+      <p class="note" id="exHint">Klikni na priečinok a otvorí sa kalkulačka tej aukcie. Podrž na ňom kurzor pre rýchly prehľad.</p>
+      <button type="button" class="reset" id="exBlank">Prázdna kalkulačka</button>
+    </div>
+  </section>
+  <div class="tip" id="exTip" role="tooltip" hidden></div>
+
+  <nav class="crumb" id="crumb" aria-label="Kde som" hidden>
+    <button type="button" class="home" id="crumbHome"><svg viewBox="0 0 24 20" aria-hidden="true" focusable="false"><path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h5.4l2.1 2.4H21a1.5 1.5 0 0 1 1.5 1.5v11.1A1.5 1.5 0 0 1 21 18H3a1.5 1.5 0 0 1-1.5-1.5z"/></svg>Aukcie</button>
+    <span class="sep" aria-hidden="true">›</span>
+    <span class="path" id="crumbTitle"></span>
+    <button type="button" class="closebtn" id="crumbClose">Zavrieť ✕</button>
+  </nav>
+
   <section class="panel analysis" id="analysis" aria-label="Analýza od Clauda" hidden>
     <div class="src">
       <span class="eyebrow">Analýza od Clauda</span>
       <span class="note" id="aWhen"></span>
     </div>
-    <label for="aHist" id="aHistWrap" hidden>História (posledných 7 dní)
-      <select id="aHist"></select>
-    </label>
     <h2 id="aTitle"></h2>
     <label for="aMode" id="aModeWrap" hidden>Kupujem
       <select id="aMode">
@@ -284,6 +365,7 @@ dl.stats.key dd { font-size: 1.05rem; }
     </div>
   </section>
 
+  <div id="calcWrap">
   <section class="panel" aria-label="Zadanie">
     <div class="row2">
       <label for="current">Aktuálna cena aukcie
@@ -341,6 +423,7 @@ dl.stats.key dd { font-size: 1.05rem; }
     </div>
     <p class="note" id="ladderNote"></p>
   </section>
+  </div>
 
   <details id="settingsBox">
     <summary>Nastavenia</summary>
@@ -644,15 +727,15 @@ dl.stats.key dd { font-size: 1.05rem; }
   Object.keys(FIELDS).forEach(function (k) {
     $(FIELDS[k]).addEventListener("input", function () {
       if (k === "ship") $("ship").value = $("shipDefault").value;
-      save(); render();
+      save(); render(); refreshExplorer();
     });
   });
-  $("auto").addEventListener("change", function () { save(); render(); });
+  $("auto").addEventListener("change", function () { save(); render(); refreshExplorer(); });
   $("reset").addEventListener("click", function () {
     Object.keys(FIELDS).forEach(function (k) { $(FIELDS[k]).value = fmtInput(DEFAULTS[k]); });
     $("auto").checked = DEFAULTS.auto;
     $("ship").value = $("shipDefault").value;
-    save(); render();
+    save(); render(); refreshExplorer();
   });
   render();
 
@@ -702,10 +785,12 @@ dl.stats.key dd { font-size: 1.05rem; }
     try {
       var p = JSON.parse(localStorage.getItem(pricesKey()) || "{}") || {};
       Object.keys(p).forEach(function (k) { if (fin(p[k]) && p[k] >= 0) prices[k] = p[k]; });
-      // Only the analysis on screen keeps its edited prices.
+      // Every folder keeps its edited prices while its analysis is in the 7-day history.
       for (var j = localStorage.length - 1; j >= 0; j--) {
         var key = localStorage.key(j);
-        if (key && key.indexOf("aukro-prices-") === 0 && key !== pricesKey()) localStorage.removeItem(key);
+        if (!key || (key.indexOf("aukro-prices-") !== 0 && key.indexOf("aukro-hidden-") !== 0)) continue;
+        var ts = Number(key.replace(/^aukro-(prices|hidden)-/, "").split("~")[0]);
+        if (!isFinite(ts) || Date.now() - ts > 8 * 864e5) localStorage.removeItem(key);
       }
     } catch (e) {}
   }
@@ -1216,7 +1301,9 @@ dl.stats.key dd { font-size: 1.05rem; }
     $("analysis").hidden = false;
     $("aTitle").textContent = String(a.title || "Lot");
     var when = a.created ? new Date(a.created) : null;
-    $("aWhen").textContent = when && !isNaN(when) ? when.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    var endI = a.end ? endInfo(a.end) : null;
+    $("aWhen").textContent = (when && !isNaN(when) ? when.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "") +
+      (endI ? " · " + (endI.ended ? "skončila " : "končí ") + endI.text : "");
     var singles = hasSingles();
     $("aModeWrap").hidden = !singles;
     if (fresh || !anyCe()) setSellTo("cm");
@@ -1230,7 +1317,6 @@ dl.stats.key dd { font-size: 1.05rem; }
     buildRows();
     if (fresh) applyAnalysis(); else { updateNote(); render(); }
     $("aApply").hidden = false;
-    renderHist();
   }
   $("aMode").addEventListener("change", function () {
     mode = $("aMode").value === "single" && hasSingles() ? "single" : "bulk";
@@ -1267,7 +1353,7 @@ dl.stats.key dd { font-size: 1.05rem; }
   });
 
   // ---- History: every analysis the page sees is copied to history/<id>; anything older than 7 days is deleted.
-  var HIST_DAYS = 7, histDb = null, histList = [], histById = {}, latestDoc = null, latestId = null, archived = {}, pruned = false;
+  var HIST_DAYS = 7, histDb = null, histList = [], latestDoc = null, latestId = null, archived = {}, pruned = false;
   function validAnalysis(d) { return !!(d && fin(d.current) && fin(d.sell) && d.id != null); }
   function tsOf(a) {
     var t = Number(a && a.id);
@@ -1275,41 +1361,292 @@ dl.stats.key dd { font-size: 1.05rem; }
     return isFinite(t) ? t : 0;
   }
   function recent(a) { return Date.now() - tsOf(a) < HIST_DAYS * 864e5; }
-  function shortOf(a) {
-    var s = String(a.short || a.title || "").replace(/^Aukro\s*[–—-]\s*/i, "").replace(/^Pok[eé]mon\s+kart[ay]\s*/i, "").trim() || "Lot";
-    return s.length > 28 ? s.slice(0, 27) + "…" : s;
+  function titleOf(a) {
+    return String(a.short || a.title || "").replace(/^Aukro\s*[–—-]\s*/i, "").trim() || "Lot";
   }
-  function histLabel(a) {
-    var d = new Date(tsOf(a));
-    var when = isNaN(d) ? "" : d.toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
-    var s = settings();
-    s.fee = val("fee", DEFAULTS.fee);   // history verdicts are always the Cardmarket sale from the analysis
-    if (fin(a.ship)) s.ship = a.ship;
-    s.premium = premFor(a);
-    var r = calc(a.current, a.sell, s);
-    return (r.ok ? "✅ " : "❌ ") + when + " · " + shortOf(a) + " · " + eur.format(a.current) +
-      (String(a.id) === latestId ? " (najnovšia)" : "");
+
+  // ---- Folders. Each auction of an analysis is a folder (analysis.auctions + card.lot from Pokemon Finder;
+  // older analyses: one folder per auction card, or the whole lot). Opening a folder loads only that auction
+  // into the calculator, as its own little analysis; "Zavrieť" goes back to the folders.
+  var screenMode = "calc";   // "calc" (no analyses yet) | "explorer" | "folder" | "blank"
+  var openKey = null;        // folder id on screen: "<analysis id>~<auction key>"
+  var OPENED_KEY = "aukro-opened-v1", SEEN_KEY = "aukro-seen-latest-v1";
+  var opened = {};
+  try { opened = JSON.parse(localStorage.getItem(OPENED_KEY) || "{}") || {}; } catch (e) { opened = {}; }
+  function markOpened(id) {
+    opened[id] = Date.now();
+    try {
+      Object.keys(opened).forEach(function (k) { if (!fin(opened[k]) || Date.now() - opened[k] > 8 * 864e5) delete opened[k]; });
+      localStorage.setItem(OPENED_KEY, JSON.stringify(opened));
+    } catch (e) {}
   }
-  function renderHist() {
-    var sel = $("aHist"), list = histList.slice();
-    if (latestDoc && !list.some(function (x) { return String(x.id) === String(latestDoc.id); })) list.push(latestDoc);
-    list.sort(function (x, y) { return tsOf(y) - tsOf(x); });
-    histById = {};
-    sel.textContent = "";
-    list.forEach(function (a) {
-      histById[String(a.id)] = a;
-      var o = document.createElement("option");
-      o.value = String(a.id);
-      o.textContent = histLabel(a);
-      sel.appendChild(o);
+  function validAu(au) { return !!(au && fin(au.current) && fin(au.sell)); }
+  function foldersOf(a) {
+    var cs = Array.isArray(a.cards) ? a.cards : [], out = [];
+    if (Array.isArray(a.auctions) && a.auctions.length) {
+      a.auctions.forEach(function (au) {
+        if (!validAu(au)) return;
+        var idx = [];
+        cs.forEach(function (c, i) { if (c && typeof c === "object" && String(c.lot) === String(au.key)) idx.push(i); });
+        out.push({ a: a, key: String(au.key), au: au, idx: idx });
+      });
+      if (out.length) return out;
+    }
+    if (a.mode === "single" && cs.some(function (c) { return c && validAu(c.auction); })) {
+      cs.forEach(function (c, i) {
+        if (!(c && validAu(c.auction))) return;
+        out.push({ a: a, key: "A" + i, idx: [i], au: Object.assign({}, c.auction, {
+          title: c.auction.title || cardLabel(c), n: qtyOf(c), top: { name: cardLabel(c), price: c.price } }) });
+      });
+      return out;
+    }
+    var top = null, n = 0;
+    cs.forEach(function (c) {
+      if (!c || typeof c !== "object") return;
+      n += qtyOf(c);
+      if (fin(c.price) && (!top || c.price * qtyOf(c) > top.price * qtyOf(top))) top = c;
     });
-    $("aHistWrap").hidden = !list.length;
-    if (analysis) sel.value = String(analysis.id);
+    return [{ a: a, key: "lot", idx: cs.map(function (c, i) { return i; }), au: {
+      title: titleOf(a), current: a.current, ship: a.ship, premium: a.premium, sell: a.sell, altSell: a.altSell,
+      url: a.url, end: a.end, n: n, top: top ? { name: cardLabel(top), price: top.price } : null } }];
   }
-  $("aHist").addEventListener("change", function () {
-    var a = histById[$("aHist").value];
-    if (a) showAnalysis(a);
+  function stripCard(c) { var x = Object.assign({}, c); delete x.auction; return x; }
+  // One auction as an analysis of its own (bulk mode: its cards, its bid, value and shipping).
+  function folderAnalysis(f) {
+    var a = f.a, au = f.au;
+    return Object.assign({}, a, {
+      id: String(a.id) + "~" + f.key, title: au.title, current: au.current, sell: au.sell,
+      ship: fin(au.ship) ? au.ship : null, premium: fin(au.premium) ? au.premium : 0,
+      altSell: fin(au.altSell) ? au.altSell : null, url: au.url || null, end: au.end || null,
+      sellNote: f.key === "lot" ? a.sellNote : null, mode: "bulk", auctions: null,
+      cards: f.idx.map(function (i) { return stripCard(a.cards[i]); })
+    });
+  }
+  // All auctions of one analysis bought together (sum of the bids, one shipping).
+  function togetherAnalysis(a) {
+    return Object.assign({}, a, {
+      id: String(a.id) + "~all", title: titleOf(a) + " – všetko spolu", mode: "bulk", auctions: null, url: null,
+      sellNote: null, cards: (a.cards || []).map(function (c) { return c && typeof c === "object" ? stripCard(c) : c; })
+    });
+  }
+  // Verdict of a folder with the current settings (Cardmarket sale, the auction's own shipping and surcharge).
+  function folderCalc(au) {
+    var s = settings();
+    s.fee = val("fee", DEFAULTS.fee);
+    s.ship = fin(au.ship) ? au.ship : val("shipDefault", DEFAULTS.ship);
+    s.premium = premFor(au);
+    return { r: calc(au.current, au.sell, s), s: s };
+  }
+  function endInfo(iso) {
+    var t = Date.parse(iso);
+    if (!isFinite(t)) return null;
+    var left = t - Date.now();
+    var text = new Date(t).toLocaleString("sk-SK", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+    if (left <= 0) return { text: text, rem: "skončila", ended: true };
+    var h = Math.floor(left / 36e5), d = Math.floor(h / 24);
+    var rem = d ? d + " d " + (h % 24) + " h" : h ? h + " h " + Math.floor(left % 36e5 / 6e4) + " min" : Math.max(1, Math.floor(left / 6e4)) + " min";
+    return { text: text, rem: "o " + rem, ended: false };
+  }
+  function dayStart(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+  function dayLabel(t) {
+    var diff = Math.round((dayStart(Date.now()) - dayStart(t)) / 864e5);
+    var base = new Date(t).toLocaleDateString("sk-SK", { weekday: "long", day: "numeric", month: "numeric" });
+    return diff === 0 ? "Dnes · " + base : diff === 1 ? "Včera · " + base : base;
+  }
+  function timeOf(t) { return new Date(t).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); }
+  function nAukcii(n) { return n + (n === 1 ? " aukcia" : n >= 2 && n <= 4 ? " aukcie" : " aukcií"); }
+  function nKariet(n) { return n + (n === 1 ? " karta" : n >= 2 && n <= 4 ? " karty" : " kariet"); }
+  function fidOf(f) { return String(f.a.id) + "~" + f.key; }
+  function allAnalyses() {
+    var list = histList.slice();
+    if (latestDoc && !list.some(function (x) { return String(x.id) === String(latestDoc.id); })) list.push(latestDoc);
+    return list.filter(function (a) { return recent(a) || String(a.id) === latestId; })
+      .sort(function (x, y) { return tsOf(y) - tsOf(x); });
+  }
+
+  var FOLDER_SVG = '<svg viewBox="0 0 24 20" aria-hidden="true" focusable="false"><path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h5.4l2.1 2.4H21a1.5 1.5 0 0 1 1.5 1.5v11.1A1.5 1.5 0 0 1 21 18H3a1.5 1.5 0 0 1-1.5-1.5z"/></svg>';
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function tile(f, showTime) {
+    var au = f.au, r = folderCalc(au).r, fid = fidOf(f), end = au.end ? endInfo(au.end) : null;
+    var b = el("button", "tile " + (r.ok ? "ok" : "no") + (end && end.ended ? " ended" : ""));
+    b.type = "button";
+    b.dataset.fid = fid;
+    var ic = el("span", "ico"); ic.innerHTML = FOLDER_SVG; b.appendChild(ic);
+    if (!opened[fid] && Date.now() - tsOf(f.a) < 864e5) b.appendChild(el("span", "new", "nové"));
+    b.appendChild(el("span", "t", au.title));
+    var m = el("span", "m");
+    m.appendChild(document.createTextNode(eur.format(au.current) + " · "));
+    m.appendChild(el("span", "v " + (r.ok ? "ok" : "no"), r.ok ? "✅ " + eur.format(r.limit) : "❌"));
+    b.appendChild(m);
+    var extra = [];
+    if (fin(au.n)) extra.push(nKariet(au.n));
+    if (end) extra.push(end.ended ? "skončila" : "končí " + end.rem);
+    else if (showTime) extra.push(timeOf(tsOf(f.a)));
+    if (extra.length) b.appendChild(el("span", "m", extra.join(" · ")));
+    b.setAttribute("aria-label", au.title + ", aukcia " + eur.format(au.current) + ", " +
+      (r.ok ? "oplatí sa, limit " + eur.format(r.limit) : "neoplatí sa") + (end ? ", " + (end.ended ? "skončila" : "končí " + end.rem) : ""));
+    var press = null, longPressed = false;
+    b.addEventListener("click", function (ev) {
+      if (longPressed) { longPressed = false; ev.preventDefault(); return; }
+      openFolder(f);
+    });
+    b.addEventListener("mouseenter", function () {
+      if (!(window.matchMedia && window.matchMedia("(hover: hover)").matches)) return;
+      clearTimeout(tipTimer);
+      tipTimer = setTimeout(function () { showTip(f, b); }, 220);
+    });
+    b.addEventListener("mouseleave", hideTip);
+    b.addEventListener("focus", function () { if (b.matches(":focus-visible")) showTip(f, b); });
+    b.addEventListener("blur", hideTip);
+    // Touch: hold the finger on a folder for the quick stats; a normal tap opens it.
+    b.addEventListener("pointerdown", function (ev) {
+      if (ev.pointerType !== "touch") return;
+      longPressed = false;
+      clearTimeout(press);
+      press = setTimeout(function () { longPressed = true; showTip(f, b); }, 450);
+    });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (t) { b.addEventListener(t, function () { clearTimeout(press); }); });
+    b.addEventListener("contextmenu", function (ev) { if (longPressed) ev.preventDefault(); });
+    return b;
+  }
+
+  var tipTimer = null;
+  function showTip(f, anchor) {
+    var au = f.au, fc = folderCalc(au), r = fc.r, s = fc.s, tip = $("exTip");
+    var pl = r.profitAt(Math.max(r.limit, 0)), end = au.end ? endInfo(au.end) : null;
+    tip.textContent = "";
+    tip.appendChild(el("div", "tt", au.title));
+    tip.appendChild(el("div", "tv " + (r.ok ? "ok" : "no"),
+      r.ok ? "✅ Oplatí sa · limit " + eur.format(r.limit) : "❌ Neprihadzuj" + (r.limit > 0 ? " · najviac do " + eur.format(r.limit) : "")));
+    var dl = el("dl");
+    function row(k, v) { dl.appendChild(el("dt", null, k)); dl.appendChild(el("dd", null, v)); }
+    row("Aukcia teraz", eur.format(au.current));
+    row("Predám za", eur.format(au.sell));
+    if (r.ok) row("Rezerva do limitu", eur.format(round2(r.limit - au.current)));
+    if (r.ok) row("Zisk pri limite", eur.format(pl.abs) + " (" + pct.format(pl.rel) + " %)");
+    if (fin(au.altSell) && au.altSell < au.sell - 0.005) {
+      var ra = calc(au.current, au.altSell, s);
+      row("Pri lacných ponukách", ra.ok ? "limit " + eur.format(ra.limit) : "❌");
+    }
+    if (fin(au.n)) row("Kariet", String(au.n));
+    if (au.top && au.top.name) row("Najdrahšia", au.top.name + (fin(au.top.price) ? " · " + eur.format(au.top.price) : ""));
+    row("Poštovné", eur.format(s.ship) + (s.premium > 0 ? " · prirážka " + pct.format(s.premium) + " %" : ""));
+    if (end) row(end.ended ? "Skončila" : "Koniec", end.text + (end.ended ? "" : " (" + end.rem + ")"));
+    row("Analýza", new Date(tsOf(f.a)).toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }));
+    tip.appendChild(dl);
+    tip.hidden = false;
+    var rc = anchor.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    var left = Math.min(Math.max(8, rc.left), window.innerWidth - w - 8);
+    var top = rc.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, rc.top - h - 8);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+  function hideTip() { clearTimeout(tipTimer); $("exTip").hidden = true; }
+  window.addEventListener("scroll", hideTip, { passive: true });
+  document.addEventListener("pointerdown", function (ev) { if (!(ev.target.closest && ev.target.closest(".tile"))) hideTip(); });
+
+  function renderExplorer() {
+    var list = allAnalyses(), box = $("exList"), n = 0;
+    box.textContent = "";
+    var day = null, dayBox = null, loose = null;
+    list.forEach(function (a) {
+      var fs = foldersOf(a), t = tsOf(a);
+      if (!fs.length) return;
+      if (day === null || dayStart(t) !== day) {
+        day = dayStart(t);
+        dayBox = el("div", "exday");
+        dayBox.appendChild(el("h3", null, dayLabel(t)));
+        box.appendChild(dayBox);
+        loose = null;
+      }
+      n += fs.length;
+      if (fs.length === 1) {
+        if (!loose) { loose = el("div", "tiles"); dayBox.appendChild(loose); }
+        loose.appendChild(tile(fs[0], true));
+        return;
+      }
+      // Several auctions from one analysis (one seller): their own group, plus "all together".
+      loose = null;
+      var g = el("div", "exgroup"), gh = el("div", "gh"), gt = el("span", "gt", titleOf(a) + " ");
+      gt.appendChild(el("small", null, timeOf(t) + " · " + nAukcii(fs.length)));
+      gh.appendChild(gt);
+      var both = el("button", "chipbtn", "Všetko spolu");
+      both.type = "button";
+      both.title = "Ak by si vyhral všetky aukcie (súčet príhozov, jedno poštovné)";
+      both.addEventListener("click", function () { openView(togetherAnalysis(a), String(a.id) + "~all", titleOf(a) + " – všetko spolu"); });
+      gh.appendChild(both);
+      g.appendChild(gh);
+      var grid = el("div", "tiles");
+      fs.forEach(function (f) { grid.appendChild(tile(f, false)); });
+      g.appendChild(grid);
+      dayBox.appendChild(g);
+    });
+    if (!n) box.appendChild(el("p", "exempty", "Zatiaľ tu nie sú žiadne aukcie. Pošli Claudovi odkaz na aukciu."));
+    $("exCount").textContent = n ? nAukcii(n) + " za " + HIST_DAYS + " dní" : "";
+    var touch = window.matchMedia && window.matchMedia("(hover: none)").matches;
+    $("exHint").textContent = "Klikni na priečinok a otvorí sa kalkulačka tej aukcie. " +
+      (touch ? "Podrž na ňom prst" : "Podrž na ňom kurzor") + " pre rýchly prehľad.";
+  }
+  function refreshExplorer() { if (screenMode === "explorer") renderExplorer(); }
+
+  function setScreen(s) {
+    screenMode = s;
+    $("explorer").hidden = s !== "explorer";
+    $("crumb").hidden = !(s === "folder" || s === "blank");
+    $("calcWrap").hidden = s === "explorer";
+    if (s !== "folder") $("analysis").hidden = true;
+    hideTip();
+  }
+  function openView(a, fid, title) {
+    openKey = fid;
+    markOpened(fid);
+    $("crumbTitle").textContent = title;
+    setScreen("folder");
+    showAnalysis(a);
+    window.scrollTo(0, 0);
+  }
+  function openFolder(f) { openView(folderAnalysis(f), fidOf(f), f.au.title); }
+  function closeFolder() {
+    var back = openKey;
+    openKey = null;
+    setScreen("explorer");
+    renderExplorer();
+    var t = back && Array.prototype.find.call(document.querySelectorAll(".tile"), function (x) { return x.dataset.fid === back; });
+    if (t) { t.scrollIntoView({ block: "center" }); t.focus({ preventScroll: true }); hideTip(); }
+    else window.scrollTo(0, 0);
+  }
+  $("crumbHome").addEventListener("click", closeFolder);
+  $("crumbClose").addEventListener("click", closeFolder);
+  $("exBlank").addEventListener("click", function () {
+    openKey = null;
+    analysis = null;
+    setSellTo("cm");
+    $("crumbTitle").textContent = "Vlastný výpočet";
+    setScreen("blank");
+    render();
+    window.scrollTo(0, 0);
   });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape" || !(screenMode === "folder" || screenMode === "blank")) return;
+    var t = ev.target && ev.target.tagName;
+    if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") return;
+    closeFolder();
+  });
+  // A new analysis from Claude: one auction opens right away, several show their folders (marked "nové").
+  function onLatest(d, first) {
+    var seen = null;
+    try { seen = localStorage.getItem(SEEN_KEY); localStorage.setItem(SEEN_KEY, String(d.id)); } catch (e) {}
+    var fresh = String(d.id) !== seen, fs = foldersOf(d);
+    if (fresh && fs.length === 1) { openFolder(fs[0]); return; }
+    if (fresh || first || screenMode === "calc") {
+      setScreen("explorer");
+      renderExplorer();
+      window.scrollTo(0, 0);
+      return;
+    }
+    refreshExplorer();
+  }
   // Copy an analysis into history once (only if it isn't there yet).
   function archive(d) {
     var id = String(d.id);
@@ -1339,13 +1676,15 @@ dl.stats.key dd { font-size: 1.05rem; }
         if (!validAnalysis(d)) return;
         latestDoc = d;
         archive(d);
-        // A new analysis from Claude always takes over the screen; the same one again only refreshes the list.
-        if (String(d.id) !== latestId) { latestId = String(d.id); showAnalysis(d); } else renderHist();
+        // A new analysis from Claude takes over the screen; the same one again only refreshes the folders.
+        if (String(d.id) !== latestId) { var first = latestId === null; latestId = String(d.id); onLatest(d, first); }
+        else refreshExplorer();
       }, function () { /* no analysis available: the calculator works as before */ });
       db.collection("history").onSnapshot(function (snap) {
         histList = snap.docs.map(function (s) { return s.data(); }).filter(function (a) { return validAnalysis(a) && recent(a); });
         prune(snap);
-        renderHist();
+        if (screenMode === "calc" && histList.length) setScreen("explorer");
+        refreshExplorer();
       }, function () { /* history unavailable: only the latest analysis is shown */ });
     }).catch(function () {});
   }
