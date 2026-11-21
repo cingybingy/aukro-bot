@@ -259,6 +259,26 @@ dl.stats.key dd { font-size: 1.05rem; }
 .crumb .closebtn:hover { border-color: var(--accent); }
 .crumb button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #calcWrap { display: contents; }
+/* "Malé karty" sub-folder inside an auction's card list: their value is shown but not counted. */
+.analysis tr.subfolder td { padding: 6px 0; text-align: left; white-space: normal; }
+.subbtn {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; color: var(--ink);
+  background: var(--bg); border: 1.5px dashed var(--line); border-radius: 10px; padding: 9px 10px; cursor: pointer;
+}
+.subbtn:hover { border-color: var(--accent); }
+.subbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.subbtn .car { flex: none; width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent var(--muted); transition: transform 0.15s; }
+tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
+.subbtn .ico { flex: none; width: 24px; height: 20px; color: var(--muted); }
+.subbtn .ico svg { width: 100%; height: 100%; fill: currentColor; }
+.subbtn .st { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.subbtn .st strong { font-size: 0.88rem; }
+.subbtn .st small { font-size: 0.75rem; color: var(--muted); }
+.subbtn .sv { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.analysis tr.smallrow td { color: var(--muted); }
+.analysis tr.smallrow td.name { padding-left: 18px; }
+@media (prefers-reduced-motion: reduce) { .subbtn .car { transition: none; } }
 </style>
 
 <main>
@@ -819,11 +839,40 @@ dl.stats.key dd { font-size: 1.05rem; }
     var adj = fin(c.price) ? c.price * (1 - discOf()) : null;
     return adj != null && adj >= singleMinOf() - 1e-9 ? adj * qtyOf(c) : (origSellOf(c) || 0);
   }
-  // "Predám za" for the whole lot: Claude's value with each edited card's difference applied.
+  // ---- Small cards (user's rule): in an auction with many cards, cards under smallMin (2 €) are hard to sell,
+  // so they don't count in "Predám za"; they sit in the "Malé karty" sub-folder with their value. A price the
+  // viewer types moves a card in or out (edited to 3 € = it counts). Selling to CardEmpire counts every card.
+  var smallOpen = false;
+  function smallMinOf() { return analysis && fin(analysis.smallMin) ? analysis.smallMin : 2; }
+  function smallRuleFor(c) {
+    if (!analysis || !c || typeof c !== "object") return false;
+    return analysis.smallRule === true || !!(analysis.smallLots && analysis.smallLots[String(c.lot)]);
+  }
+  function isSmall(c, i) {
+    if (ceMode() || !smallRuleFor(c)) return false;
+    var p = priceOf(c, i);
+    return p == null || p < smallMinOf() - 1e-9;
+  }
+  function smallStats() {
+    var n = 0, v = 0;
+    cards().forEach(function (c, i) { if (isSmall(c, i)) { n += qtyOf(c); v += (priceOf(c, i) || 0) * qtyOf(c); } });
+    return { n: n, v: round2(v) };
+  }
+  function smallText() {
+    var st = smallStats();
+    return st.n ? " Malé karty pod " + eur.format(smallMinOf()) + " (" + st.n + " ks, " + eur.format(st.v) + ") sa nerátajú." : "";
+  }
+  // "Predám za" for the whole lot: Claude's value with each edited card's difference applied
+  // (a small card counts 0, Claude's value already left the original small cards out).
   function lotSell() {
     if (ceMode()) return ceLot();
     var s = analysis.sell;
-    cards().forEach(function (c, i) { if (edited(i) && c && typeof c === "object") s += editedSell(c, prices[i]) - origExact(c); });
+    cards().forEach(function (c, i) {
+      if (!edited(i) || !c || typeof c !== "object") return;
+      var was = c.small ? 0 : origExact(c);
+      var now = isSmall(c, i) ? 0 : editedSell(c, prices[i]);
+      s += now - was;
+    });
     return round2(Math.max(s, 0));
   }
   // Lot value at the cheapest offers: an edited card counts at the viewer's price (they checked it).
@@ -1114,12 +1163,12 @@ dl.stats.key dd { font-size: 1.05rem; }
     } else if (nEdited()) {
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
         (nEdited() === 1 ? " karta" : nEdited() < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
-        "). Tvoje ceny sa rátajú presne, po −" + pct.format(discOf() * 100) + " % za stav. Neupravené karty pod " +
-        eur.format(singleMinOf()) + " ostávajú za bulk cenu z analýzy.";
+        "). Tvoje ceny sa rátajú presne, po −" + pct.format(discOf() * 100) + " % za stav." +
+        (smallStats().n ? smallText() : " Neupravené karty pod " + eur.format(singleMinOf()) + " ostávajú za bulk cenu z analýzy.");
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
         (a.mode === "single" ? ". Aukcie spolu " + eur.format(a.current) + ", jedno poštovné (ak ti predajca pošle všetko naraz)" : "") +
-        ". Ceny z Cardmarketu, priemer predajov za 30 dní.";
+        "." + smallText() + " Ceny z Cardmarketu, priemer predajov za 30 dní.";
     }
   }
   function applyAnalysis() {
@@ -1207,7 +1256,33 @@ dl.stats.key dd { font-size: 1.05rem; }
     var body = $("aCards");
     body.textContent = "";
     rowEls = [];
-    list.forEach(function (x) {
+    // Small-card rule: cards under smallMin in a big auction go into the "Malé karty" sub-folder (not counted).
+    var smallList = single ? [] : list.filter(function (x) { return isSmall(x.c, x.i); });
+    var mainList = single ? list : list.filter(function (x) { return !isSmall(x.c, x.i); });
+    mainList.forEach(function (x) { addRow(x, false); });
+    if (smallList.length) {
+      var sq = 0, sv = 0;
+      smallList.forEach(function (x) { var q = qtyOf(x.c), p = priceOf(x.c, x.i); sq += q; sv += (p || 0) * q; });
+      var ftr = document.createElement("tr");
+      ftr.className = "subfolder" + (smallOpen ? " open" : "");
+      var ftd = document.createElement("td");
+      ftd.colSpan = 5;
+      var fb = document.createElement("button");
+      fb.type = "button"; fb.className = "subbtn"; fb.dataset.ri = "small";
+      fb.setAttribute("aria-expanded", smallOpen ? "true" : "false");
+      fb.innerHTML = '<span class="car" aria-hidden="true"></span><span class="ico">' + FOLDER_SVG + "</span>";
+      var ft = document.createElement("span"); ft.className = "st";
+      ft.appendChild(el("strong", null, "Malé karty pod " + eur.format(smallMinOf())));
+      ft.appendChild(el("small", null, nKariet(sq) + " · nerátajú sa do „Predám za“, ťažko sa predávajú"));
+      fb.appendChild(ft);
+      fb.appendChild(el("span", "sv", eur.format(round2(sv))));
+      fb.addEventListener("click", function () { smallOpen = !smallOpen; buildRows(); });
+      ftd.appendChild(fb);
+      ftr.appendChild(ftd);
+      body.appendChild(ftr);
+      if (smallOpen) smallList.forEach(function (x) { addRow(x, true); });
+    }
+    function addRow(x, inSmall) {
       var c = x.c, i = x.i;
       var tr = document.createElement("tr");
       var qty = fin(c.qty) ? c.qty : 1;
@@ -1239,7 +1314,7 @@ dl.stats.key dd { font-size: 1.05rem; }
       } else {
         cell(tr, x.price != null ? eur.format(x.price * qty) : "–");
       }
-      var canCalc = single ? !!x.au : sellOf(c) != null && all.length > 1;
+      var canCalc = single ? !!x.au : sellOf(c) != null && all.length > 1 && !inSmall;
       if (canCalc || cmUrlOf(c) || aukroUrlOf(c)) {
         var pick = function () { openIdx = openIdx === i ? -1 : i; buildRows(); };
         cls.push("pick");
@@ -1254,6 +1329,7 @@ dl.stats.key dd { font-size: 1.05rem; }
         tr.addEventListener("keydown", function (ev) { if (ev.target === tr && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); pick(); } });
       }
       if (hidden[i]) cls.push("ghost");
+      if (inSmall) cls.push("smallrow");
       tr.className = cls.join(" ");
       var xc = cell(tr, "", "x");
       var b = document.createElement("button");
@@ -1271,7 +1347,7 @@ dl.stats.key dd { font-size: 1.05rem; }
       rowEls[i] = tr;
       body.appendChild(tr);
       if (i === openIdx) body.appendChild(actionsRow(c, i, canCalc));
-    });
+    }
     if (focusSel) {
       var again = body.querySelector(focusSel);
       if (again) again.focus({ preventScroll: true });
@@ -1296,7 +1372,7 @@ dl.stats.key dd { font-size: 1.05rem; }
     var fresh = String(a.id) !== appliedThisVisit;
     var newId = !analysis || String(analysis.id) !== String(a.id);
     analysis = a;
-    if (newId) { loadHidden(); loadPrices(); }
+    if (newId) { loadHidden(); loadPrices(); smallOpen = false; }
     $("aResetPrices").hidden = !nEdited();
     $("analysis").hidden = false;
     $("aTitle").textContent = String(a.title || "Lot");
@@ -1418,14 +1494,18 @@ dl.stats.key dd { font-size: 1.05rem; }
       id: String(a.id) + "~" + f.key, title: au.title, current: au.current, sell: au.sell,
       ship: fin(au.ship) ? au.ship : null, premium: fin(au.premium) ? au.premium : 0,
       altSell: fin(au.altSell) ? au.altSell : null, url: au.url || null, end: au.end || null,
-      sellNote: f.key === "lot" ? a.sellNote : null, mode: "bulk", auctions: null,
+      smallRule: !!au.smallRule, smallLots: null,
+      sellNote: f.key === "lot" && !au.smallRule ? a.sellNote : null, mode: "bulk", auctions: null,
       cards: f.idx.map(function (i) { return stripCard(a.cards[i]); })
     });
   }
   // All auctions of one analysis bought together (sum of the bids, one shipping).
   function togetherAnalysis(a) {
+    var lots = {};
+    (Array.isArray(a.auctions) ? a.auctions : []).forEach(function (au) { if (au && au.smallRule) lots[String(au.key)] = true; });
     return Object.assign({}, a, {
       id: String(a.id) + "~all", title: titleOf(a) + " – všetko spolu", mode: "bulk", auctions: null, url: null,
+      smallRule: false, smallLots: lots,
       sellNote: null, cards: (a.cards || []).map(function (c) { return c && typeof c === "object" ? stripCard(c) : c; })
     });
   }
@@ -1529,6 +1609,8 @@ dl.stats.key dd { font-size: 1.05rem; }
       row("Pri lacných ponukách", ra.ok ? "limit " + eur.format(ra.limit) : "❌");
     }
     if (fin(au.n)) row("Kariet", String(au.n));
+    if (au.smallRule && fin(au.smallN) && au.smallN > 0)
+      row("Malé karty (nerátané)", au.smallN + " ks · " + eur.format(fin(au.smallValue) ? au.smallValue : 0));
     if (au.top && au.top.name) row("Najdrahšia", au.top.name + (fin(au.top.price) ? " · " + eur.format(au.top.price) : ""));
     row("Poštovné", eur.format(s.ship) + (s.premium > 0 ? " · prirážka " + pct.format(s.premium) + " %" : ""));
     if (end) row(end.ended ? "Skončila" : "Koniec", end.text + (end.ended ? "" : " (" + end.rem + ")"));
