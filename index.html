@@ -1,4 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+
 <title>Aukro limit na karty</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -403,6 +404,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
         <span class="field"><input id="premium" type="text" inputmode="decimal" autocomplete="off" value="0"><span class="unit">%</span></span>
       </label>
     </div>
+    <label class="check" for="falling"><input id="falling" type="checkbox"> <span>📉 Klesajúci trend <small id="fallingHint">(prísnejší zisk)</small></span></label>
   </section>
 
   <section class="hero" id="hero" aria-live="polite">
@@ -450,24 +452,45 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     <div class="settings">
       <div class="feechip" id="feeChip"></div>
       <h3>Zisk</h3>
+      <p class="note">Oplatí sa, ak zisk splní <strong>aspoň jeden riadok</strong> (v riadku musia platiť obe podmienky). Lacné aukcie rozhodne prvý riadok, drahšie môžu mať nižšie % ale musia priniesť viac €. Riadok s 0 € a 0 % je vypnutý.</p>
       <div class="row2">
-        <label for="target">Minimálny zisk v %
-          <span class="field"><input id="target" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        <label for="r0e">Zisk aspoň
+          <span class="field"><input id="r0e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
         </label>
-        <label for="minAbs">Minimálny zisk v €
-          <span class="field"><input id="minAbs" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        <label for="r0p">a zároveň
+          <span class="field"><input id="r0p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
         </label>
       </div>
-      <p class="note">Musia platiť obe podmienky naraz. Pri lacných kartách rozhoduje suma v €, pri drahších percentá.</p>
       <div class="row2">
-        <label for="bigAbs">Dobrý zisk v €
-          <span class="field"><input id="bigAbs" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
-          <small>Od tejto sumy sa to oplatí aj pod minimálnymi %. 0 = vypnuté.</small>
+        <label for="r1e">alebo aspoň
+          <span class="field"><input id="r1e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
         </label>
-        <label for="bigPct">a zároveň aspoň
-          <span class="field"><input id="bigPct" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
-          <small>Aby si pri drahých lotoch neriskoval veľa za málo.</small>
+        <label for="r1p">a zároveň
+          <span class="field"><input id="r1p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
         </label>
+      </div>
+      <div class="row2">
+        <label for="r2e">alebo aspoň
+          <span class="field"><input id="r2e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        </label>
+        <label for="r2p">a zároveň
+          <span class="field"><input id="r2p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="r3e">alebo aspoň
+          <span class="field"><input id="r3e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        </label>
+        <label for="r3p">a zároveň
+          <span class="field"><input id="r3p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="fallBump">Pri klesajúcom trende navyše
+          <span class="field"><input id="fallBump" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+          <small>Pripočíta sa ku každému riadku. Klesá = 7d priemer alebo trend aspoň o 10 % pod 30d priemerom pri kartách, ktoré tvoria aspoň polovicu hodnoty aukcie.</small>
+        </label>
+        <span></span>
       </div>
 
       <h3>Nákup na Aukre</h3>
@@ -535,10 +558,15 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
     [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
   ];
-  var DEFAULTS = { ship: 4, target: 25, minAbs: 2, bigAbs: 5, bigPct: 10, fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
-  var KEY = "aukro-calc-settings-v2";
+  // Profit rules (user, 2026-11-24): a buy is good when the profit meets ANY row [min %, min €];
+  // a falling price trend adds fallBump % to every row.
+  var DEFAULTS = { ship: 4, r0p: 25, r0e: 2, r1p: 20, r1e: 5, r2p: 15, r2e: 10, r3p: 12, r3e: 25, fallBump: 10,
+    fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
+  var NRULES = 4;
+  var KEY = "aukro-calc-settings-v3", OLD_KEY = "aukro-calc-settings-v2";
   // Saved setting -> settings input id.
-  var FIELDS = { ship: "shipDefault", target: "target", minAbs: "minAbs", bigAbs: "bigAbs", bigPct: "bigPct", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
+  var FIELDS = { ship: "shipDefault", r0p: "r0p", r0e: "r0e", r1p: "r1p", r1e: "r1e", r2p: "r2p", r2e: "r2e", r3p: "r3p", r3e: "r3e",
+    fallBump: "fallBump", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
   var pct = new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 1 });
@@ -558,7 +586,14 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
 
   function load() {
     var s = {};
-    try { s = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { s = {}; }
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw == null) {
+        // Old settings (one % + € rule): keep shipping, fees and bid steps, the new profit rules start fresh.
+        s = JSON.parse(localStorage.getItem(OLD_KEY) || "{}") || {};
+        ["target", "minAbs", "bigAbs", "bigPct"].forEach(function (k) { delete s[k]; });
+      } else s = JSON.parse(raw) || {};
+    } catch (e) { s = {}; }
     if (s.buyFix === 0.2) s.buyFix = DEFAULTS.buyFix; // old default, Aukro now shows 0,25 €
     Object.keys(FIELDS).forEach(function (k) {
       var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
@@ -573,19 +608,28 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // Core math. o = { ship, target, minAbs, fee, buyPct, buyFix, premium, stepFn }.
+  // The profit rules in force: [{p: min %, e: min €}], falling trend = every % + fallBump.
+  function rulesOf(o) {
+    var bump = o.falling ? o.fallBump : 0;
+    return o.rules.map(function (r) { return { p: r.p + bump, e: r.e }; });
+  }
+  function ruleLabel(r) { return "zisk aspoň " + eur.format(r.e) + " a " + pct.format(r.p) + " %"; }
+  function meetsRules(pr, o) {
+    return rulesOf(o).some(function (r) { return pr.rel >= r.p - 1e-6 && pr.abs >= r.e - 1e-6; });
+  }
+
+  // Core math. o = { ship, rules, fallBump, falling, fee, buyPct, buyFix, premium, stepFn }.
   // premium = "Kolekcia aukcií" surcharge in % of the final price, paid by the winner on top of the bid
   // (the Aukro buyer fee is taken from the bid itself).
   function calc(current, sell, o) {
     var prem = (typeof o.premium === "number" && isFinite(o.premium) && o.premium > 0 ? o.premium : 0) / 100;
     var net = sell * (1 - o.fee / 100);               // what you keep after the Cardmarket fee
-    var costByPct = net / (1 + o.target / 100);       // most you may pay in total to keep target %
-    var costByAbs = net - o.minAbs;                   // most you may pay in total to keep minAbs €
-    var maxCost = Math.min(costByPct, costByAbs);
-    var rule = costByAbs < costByPct ? "abs" : "pct";
-    // A big enough € profit is good even below target %, as long as it keeps at least bigPct % (bigAbs 0 = off).
-    var costByBig = Math.min(net - o.bigAbs, net / (1 + o.bigPct / 100));
-    if (o.bigAbs > 0 && costByBig > maxCost) { maxCost = costByBig; rule = "big"; }
+    // Most you may pay in total under each rule (keep p % and e €); the most lenient rule decides.
+    var maxCost = -Infinity, rule = null;
+    rulesOf(o).forEach(function (r) {
+      var c = Math.min(net / (1 + r.p / 100), net - r.e);
+      if (c > maxCost + 1e-9) { maxCost = c; rule = r; }
+    });
     // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + surcharge + fee + ship  =>  solve for price
     function buyFeeAt(price) { return Math.min(price * o.buyPct / 100 + o.buyFix, o.buyMax); }
     var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100 + prem);
@@ -616,12 +660,17 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function settings() {
     var step = val("step", DEFAULTS.step, true);
     var auto = $("auto").checked;
+    var rules = [];
+    for (var k = 0; k < NRULES; k++) {
+      var rp = Math.max(val("r" + k + "p", DEFAULTS["r" + k + "p"]), 0), re = Math.max(val("r" + k + "e", DEFAULTS["r" + k + "e"]), 0);
+      if (rp > 0 || re > 0) rules.push({ p: rp, e: re });
+    }
+    if (!rules.length) rules.push({ p: 0, e: 0 });   // every row switched off: any profit is enough
     return {
       ship: val("ship", val("shipDefault", DEFAULTS.ship)),
-      target: val("target", DEFAULTS.target),
-      minAbs: val("minAbs", DEFAULTS.minAbs),
-      bigAbs: val("bigAbs", DEFAULTS.bigAbs),
-      bigPct: val("bigPct", DEFAULTS.bigPct),
+      rules: rules,
+      fallBump: Math.max(val("fallBump", DEFAULTS.fallBump), 0),
+      falling: $("falling").checked,
       fee: ceMode() ? 0 : val("fee", DEFAULTS.fee),   // selling to the shop: no Cardmarket fee
       buyPct: val("buyPct", DEFAULTS.buyPct),
       buyFix: val("buyFix", DEFAULTS.buyFix),
@@ -648,6 +697,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     if (!isFinite(current) || current < 0) current = 0;
     renderAlt(current, s);
     $("step").disabled = s.auto;
+    $("fallingHint").textContent = "(ku každému pravidlu +" + pct.format(s.fallBump) + " %)";
     renderIncTable(current);
     $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ")" +
       (s.premium > 0 ? ", prirážka kolekcie <strong>" + pct.format(s.premium) + " %</strong> z konečnej ceny" : "") +
@@ -673,10 +723,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     }
 
     var r = calc(current, sell, s);
-    var ruleText = r.rule === "abs" ? "zisk aspoň " + eur.format(s.minAbs)
-      : r.rule === "big" ? "zisk aspoň " + eur.format(s.bigAbs) + " a " + pct.format(s.bigPct) + " %"
-      : "zisk aspoň " + pct.format(s.target) + " %";
-    var bothText = pct.format(s.target) + " % a " + eur.format(s.minAbs) + (s.bigAbs > 0 ? " ani " + eur.format(s.bigAbs) + " a " + pct.format(s.bigPct) + " %" : "");
+    var ruleText = ruleLabel(r.rule) + (s.falling ? " (klesajúci trend)" : "");
+    var bothText = rulesOf(s).map(function (x) { return eur.format(x.e) + " a " + pct.format(x.p) + " %"; }).join(" ani ");
     var pl = r.profitAt(Math.max(r.limit, 0)), pn = r.profitAt(r.next);
     var stepNow = s.stepFn(current);
 
@@ -735,7 +783,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
 
   function rowHtml(p, r, s, isLimit, isOver) {
     var pr = r.profitAt(p);
-    var good = (pr.rel >= s.target - 1e-6 && pr.abs >= s.minAbs - 1e-6) || (s.bigAbs > 0 && pr.abs >= s.bigAbs - 1e-6 && pr.rel >= s.bigPct - 1e-6);
+    var good = meetsRules(pr, s);
     var cls = !isOver && good ? "pos" : "neg";
     return '<tr class="' + (isLimit ? "limit" : "") + '"><td>' + eur.format(p) + (isLimit ? " (limit)" : "") +
       "</td><td>" + eur.format(pr.cost) + '</td><td class="' + cls + '">' + eur.format(pr.abs) +
@@ -744,6 +792,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
 
   load();
   ["current", "sell", "ship", "premium"].forEach(function (id) { $(id).addEventListener("input", render); });
+  $("falling").addEventListener("change", render);
   Object.keys(FIELDS).forEach(function (k) {
     $(FIELDS[k]).addEventListener("input", function () {
       if (k === "ship") $("ship").value = $("shipDefault").value;
@@ -1015,6 +1064,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       p = p.trim(); if (!p) return;
       var m, warn = p.indexOf("⚠") === 0;
       if (/^❓/.test(p)) out.push({ t: "❓ odhad", k: "guess" });
+      else if (/^📉/.test(p)) out.push({ t: p, k: "warn" });
       else if ((m = p.match(/ponuky už od ([\d\s,.]+\s?€)/))) out.push({ t: "⚠ ponuky od " + m[1].trim(), k: "warn" });
       else if ((m = p.match(/30d ([\d\s,.]+\s?€) nafúknutý/))) out.push({ t: "znížené z " + m[1].trim(), k: "" });
       else if (/skreslené, použitý 7d/.test(p)) out.push({ t: "7d cena", k: "" });
@@ -1120,7 +1170,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   // Everything the sort and filter need about one card.
   function cardInfo(c, i, s) {
     var au = auctionOf(c), info = { i: i, c: c, price: ceMode() ? ceUnit(c) : priceOf(c, i), au: au, r: null };
-    if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au), premium: premFor(au) }));
+    if (au && mode === "single") info.r = calc(au.current, au.sell, Object.assign({}, s, { ship: shipFor(au), premium: premFor(au), falling: !!au.falling }));
     return info;
   }
   function sortKey(info, how) {
@@ -1174,9 +1224,11 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function applyAnalysis() {
     if (!analysis) return;
     var au = selAuction(), bc = bulkCard();
-    var src = au || { current: analysis.current, sell: bc ? sellOf(bc) : lotSell(), ship: analysis.ship, premium: analysis.premium };
+    var src = au || { current: analysis.current, sell: bc ? sellOf(bc) : lotSell(), ship: analysis.ship, premium: analysis.premium,
+      falling: bc ? !!bc.falling : !!analysis.falling };
     $("current").value = fmtInput(src.current);
     $("sell").value = fmtInput(src.sell);
+    $("falling").checked = !!src.falling;
     $("ship").value = fin(src.ship) ? fmtInput(src.ship) : $("shipDefault").value;
     $("premium").value = fmtInput(premFor(src));
     appliedThisVisit = String(analysis.id);
@@ -1484,7 +1536,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     });
     return [{ a: a, key: "lot", idx: cs.map(function (c, i) { return i; }), au: {
       title: titleOf(a), current: a.current, ship: a.ship, premium: a.premium, sell: a.sell, altSell: a.altSell,
-      url: a.url, end: a.end, n: n, top: top ? { name: cardLabel(top), price: top.price } : null } }];
+      url: a.url, end: a.end, n: n, top: top ? { name: cardLabel(top), price: top.price } : null, falling: !!a.falling } }];
   }
   function stripCard(c) { var x = Object.assign({}, c); delete x.auction; return x; }
   // One auction as an analysis of its own (bulk mode: its cards, its bid, value and shipping).
@@ -1494,7 +1546,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       id: String(a.id) + "~" + f.key, title: au.title, current: au.current, sell: au.sell,
       ship: fin(au.ship) ? au.ship : null, premium: fin(au.premium) ? au.premium : 0,
       altSell: fin(au.altSell) ? au.altSell : null, url: au.url || null, end: au.end || null,
-      smallRule: !!au.smallRule, smallLots: null,
+      smallRule: !!au.smallRule, smallLots: null, falling: !!au.falling,
       sellNote: f.key === "lot" && !au.smallRule ? a.sellNote : null, mode: "bulk", auctions: null,
       cards: f.idx.map(function (i) { return stripCard(a.cards[i]); })
     });
@@ -1515,6 +1567,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     s.fee = val("fee", DEFAULTS.fee);
     s.ship = fin(au.ship) ? au.ship : val("shipDefault", DEFAULTS.ship);
     s.premium = premFor(au);
+    s.falling = !!au.falling;
     return { r: calc(au.current, au.sell, s), s: s };
   }
   function endInfo(iso) {
@@ -1557,6 +1610,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     var m = el("span", "m");
     m.appendChild(document.createTextNode(eur.format(au.current) + " · "));
     m.appendChild(el("span", "v " + (r.ok ? "ok" : "no"), r.ok ? "✅ " + eur.format(r.limit) : "❌"));
+    if (au.falling) m.appendChild(document.createTextNode(" 📉"));
     b.appendChild(m);
     var extra = [];
     if (fin(au.n)) extra.push(nKariet(au.n));
@@ -1608,6 +1662,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var ra = calc(au.current, au.altSell, s);
       row("Pri lacných ponukách", ra.ok ? "limit " + eur.format(ra.limit) : "❌");
     }
+    if (au.falling) row("Trend", "📉 klesá · zisk +" + pct.format(s.fallBump) + " %");
     if (fin(au.n)) row("Kariet", String(au.n));
     if (au.smallRule && fin(au.smallN) && au.smallN > 0)
       row("Malé karty (nerátané)", au.smallN + " ks · " + eur.format(fin(au.smallValue) ? au.smallValue : 0));
@@ -1705,6 +1760,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     analysis = null;
     setSellTo("cm");
     $("crumbTitle").textContent = "Vlastný výpočet";
+    $("falling").checked = false;
     setScreen("blank");
     render();
     window.scrollTo(0, 0);
