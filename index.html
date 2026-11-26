@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 
+
 <title>Aukro limit na karty</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -188,6 +189,8 @@ button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .chip.warn { background: var(--bad-bg); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
 .chip.guess { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); border-color: var(--accent); }
 .chip.edit { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); }
+.acts .condpick { margin: 8px 0 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; font-weight: 600; flex-direction: row; }
+.acts .condpick select { width: auto; font-size: 0.88rem; padding: 6px 8px; }
 .acts .fullnote { margin: 8px 0 0; font-size: 0.82rem; color: var(--ink); white-space: normal; }
 /* Result: two key rows visible, the rest folded under "Podrobnosti". */
 details.more { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; margin-top: 2px; }
@@ -337,6 +340,12 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
         </select>
       </label>
     </div>
+    <div class="row2" id="aCondWrap" hidden>
+      <label for="aCond">Stav kariet
+        <select id="aCond"></select>
+      </label>
+      <span class="note" id="aCondNote"></span>
+    </div>
     <p class="note" id="aHint" hidden>Klikni na kartu a kalkulačka ukáže jej vlastnú aukciu.</p>
     <div class="tools" id="aTools" hidden>
       <label for="aSort">Zoradiť
@@ -382,7 +391,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     <div class="status no" id="aAlt" hidden></div>
     <div class="toolbar2">
       <button type="button" class="reset" id="aApply" hidden>Vrátiť hodnoty z analýzy</button>
-      <button type="button" class="reset" id="aResetPrices" hidden>Zrušiť moje ceny</button>
+      <button type="button" class="reset" id="aResetPrices" hidden>Zrušiť moje ceny a stavy</button>
     </div>
   </section>
 
@@ -451,46 +460,81 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     <summary>Nastavenia</summary>
     <div class="settings">
       <div class="feechip" id="feeChip"></div>
-      <h3>Zisk</h3>
-      <p class="note">Oplatí sa, ak zisk splní <strong>aspoň jeden riadok</strong> (v riadku musia platiť obe podmienky). Lacné aukcie rozhodne prvý riadok, drahšie môžu mať nižšie % ale musia priniesť viac €. Riadok s 0 € a 0 % je vypnutý.</p>
+      <h3>Zisk podľa ceny</h3>
+      <p class="note">Koľko % zisku chceš, závisí od toho, za koľko lot predáš („Predám za“). Zisk % sa ráta z toho, koľko celkovo zaplatíš. Pásmo s prázdnym „od“ je vypnuté.</p>
       <div class="row2">
-        <label for="r0e">Zisk aspoň
-          <span class="field"><input id="r0e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        <label for="t0f">Predám za od
+          <span class="field"><input id="t0f" type="text" inputmode="decimal" autocomplete="off" disabled><span class="unit">€</span></span>
         </label>
-        <label for="r0p">a zároveň
-          <span class="field"><input id="r0p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        <label for="t0p">zisk aspoň
+          <span class="field"><input id="t0p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
         </label>
       </div>
       <div class="row2">
-        <label for="r1e">alebo aspoň
-          <span class="field"><input id="r1e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        <label for="t1f">od
+          <span class="field"><input id="t1f" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
         </label>
-        <label for="r1p">a zároveň
-          <span class="field"><input id="r1p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
-        </label>
-      </div>
-      <div class="row2">
-        <label for="r2e">alebo aspoň
-          <span class="field"><input id="r2e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
-        </label>
-        <label for="r2p">a zároveň
-          <span class="field"><input id="r2p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        <label for="t1p">zisk aspoň
+          <span class="field"><input id="t1p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
         </label>
       </div>
       <div class="row2">
-        <label for="r3e">alebo aspoň
-          <span class="field"><input id="r3e" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        <label for="t2f">od
+          <span class="field"><input id="t2f" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
         </label>
-        <label for="r3p">a zároveň
-          <span class="field"><input id="r3p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        <label for="t2p">zisk aspoň
+          <span class="field"><input id="t2p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="t3f">od
+          <span class="field"><input id="t3f" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        </label>
+        <label for="t3p">zisk aspoň
+          <span class="field"><input id="t3p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="t4f">od
+          <span class="field"><input id="t4f" type="text" inputmode="decimal" autocomplete="off"><span class="unit">€</span></span>
+        </label>
+        <label for="t4p">zisk aspoň
+          <span class="field"><input id="t4p" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
         </label>
       </div>
       <div class="row2">
         <label for="fallBump">Pri klesajúcom trende navyše
           <span class="field"><input id="fallBump" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
-          <small>Pripočíta sa ku každému riadku. Klesá = 7d priemer alebo trend aspoň o 10 % pod 30d priemerom pri kartách, ktoré tvoria aspoň polovicu hodnoty aukcie.</small>
+          <small>Pripočíta sa ku každému pásmu. Klesá = 7d priemer alebo trend aspoň o 10 % pod 30d priemerom pri kartách, ktoré tvoria aspoň polovicu hodnoty aukcie.</small>
         </label>
         <span></span>
+      </div>
+
+      <h3>Stav kariet</h3>
+      <p class="note">Zrážka z ceny Cardmarket podľa stavu. Stav vyberieš pri aukcii („Stav kariet“) alebo pri jednej karte (klikni na kartu).</p>
+      <div class="row2">
+        <label for="cNM">NM – Near Mint
+          <span class="field"><input id="cNM" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+        <label for="cEX">EX – Excellent
+          <span class="field"><input id="cEX" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="cGD">GD – Good
+          <span class="field"><input id="cGD" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+        <label for="cLP">LP – Light Played
+          <span class="field"><input id="cLP" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+      </div>
+      <div class="row2">
+        <label for="cPL">PL – Played
+          <span class="field"><input id="cPL" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
+        <label for="cPO">PO – Poor
+          <span class="field"><input id="cPO" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
+        </label>
       </div>
 
       <h3>Nákup na Aukre</h3>
@@ -558,14 +602,18 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     [20, 1.50], [40, 2.50], [100, 5], [200, 8], [2000, 20], [4000, 40],
     [8000, 200], [40000, 400], [80000, 800], [120000, 1200], [200000, 2000]
   ];
-  // Profit rules (user, 2026-11-24): a buy is good when the profit meets ANY row [min %, min €];
-  // a falling price trend adds fallBump % to every row.
-  var DEFAULTS = { ship: 4, r0p: 25, r0e: 2, r1p: 20, r1e: 5, r2p: 15, r2e: 10, r3p: 12, r3e: 25, fallBump: 10,
+  // Profit tiers (user, 2026-11-26): the minimum profit in % of the total cost depends on the price tier of
+  // "Predám za" [from €, min %]; only %, no € minimum. A falling price trend adds fallBump % to every tier.
+  // Card conditions: discount (%) off the Cardmarket price per condition.
+  var DEFAULTS = { ship: 4, t0f: 0, t0p: 30, t1f: 10, t1p: 25, t2f: 30, t2p: 20, t3f: 75, t3p: 15, t4f: 150, t4p: 12, fallBump: 10,
+    cNM: 0, cEX: 10, cGD: 15, cLP: 25, cPL: 40, cPO: 60,
     fee: 5, buyPct: 5, buyFix: 0.25, buyMax: 25, step: 0.5, auto: true };
-  var NRULES = 4;
-  var KEY = "aukro-calc-settings-v3", OLD_KEY = "aukro-calc-settings-v2";
+  var NTIERS = 5;
+  var CONDS = [["NM", "Near Mint"], ["EX", "Excellent"], ["GD", "Good"], ["LP", "Light Played"], ["PL", "Played"], ["PO", "Poor"]];
+  var KEY = "aukro-calc-settings-v4", OLD_KEYS = ["aukro-calc-settings-v3", "aukro-calc-settings-v2"];
   // Saved setting -> settings input id.
-  var FIELDS = { ship: "shipDefault", r0p: "r0p", r0e: "r0e", r1p: "r1p", r1e: "r1e", r2p: "r2p", r2e: "r2e", r3p: "r3p", r3e: "r3e",
+  var FIELDS = { ship: "shipDefault", t0p: "t0p", t1f: "t1f", t1p: "t1p", t2f: "t2f", t2p: "t2p", t3f: "t3f", t3p: "t3p", t4f: "t4f", t4p: "t4p",
+    cNM: "cNM", cEX: "cEX", cGD: "cGD", cLP: "cLP", cPL: "cPL", cPO: "cPO",
     fallBump: "fallBump", fee: "fee", buyPct: "buyPct", buyFix: "buyFix", buyMax: "buyMax", step: "step" };
   var $ = function (id) { return document.getElementById(id); };
   var eur = new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" });
@@ -589,47 +637,53 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     try {
       var raw = localStorage.getItem(KEY);
       if (raw == null) {
-        // Old settings (one % + € rule): keep shipping, fees and bid steps, the new profit rules start fresh.
-        s = JSON.parse(localStorage.getItem(OLD_KEY) || "{}") || {};
-        ["target", "minAbs", "bigAbs", "bigPct"].forEach(function (k) { delete s[k]; });
+        // Old settings (profit rules with € minimums): keep shipping, fees and bid steps, the tiers start fresh.
+        for (var j = 0; j < OLD_KEYS.length && raw == null; j++) raw = localStorage.getItem(OLD_KEYS[j]);
+        s = JSON.parse(raw || "{}") || {};
+        Object.keys(s).forEach(function (k) { if (!(k in FIELDS) || /^t\d/.test(k)) delete s[k]; });
       } else s = JSON.parse(raw) || {};
     } catch (e) { s = {}; }
     if (s.buyFix === 0.2) s.buyFix = DEFAULTS.buyFix; // old default, Aukro now shows 0,25 €
     Object.keys(FIELDS).forEach(function (k) {
+      if (s[k] === null && /^t\d+f$/.test(k)) { $(FIELDS[k]).value = ""; return; }
       var v = typeof s[k] === "number" && isFinite(s[k]) ? s[k] : DEFAULTS[k];
       $(FIELDS[k]).value = fmtInput(v);
     });
     $("auto").checked = typeof s.auto === "boolean" ? s.auto : DEFAULTS.auto;
     $("ship").value = $("shipDefault").value;
+    $("t0f").value = "0";
   }
   function save() {
     var s = { auto: $("auto").checked };
-    Object.keys(FIELDS).forEach(function (k) { var v = num($(FIELDS[k])); if (isFinite(v)) s[k] = v; });
+    Object.keys(FIELDS).forEach(function (k) {
+      var v = num($(FIELDS[k]));
+      if (isFinite(v)) s[k] = v;
+      else if (/^t\d+f$/.test(k) && String($(FIELDS[k]).value).trim() === "") s[k] = null;   // tier switched off
+    });
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // The profit rules in force: [{p: min %, e: min €}], falling trend = every % + fallBump.
-  function rulesOf(o) {
-    var bump = o.falling ? o.fallBump : 0;
-    return o.rules.map(function (r) { return { p: r.p + bump, e: r.e }; });
+  // The tier for a "Predám za" value: {p: min % (+ fallBump when falling), from, to}.
+  function tierOf(sell, o) {
+    var t = o.tiers[0];
+    o.tiers.forEach(function (x) { if (sell >= x.f - 1e-9) t = x; });
+    var k = o.tiers.indexOf(t), next = o.tiers[k + 1];
+    return { p: t.p + (o.falling ? o.fallBump : 0), from: t.f, to: next ? next.f : null };
   }
-  function ruleLabel(r) { return "zisk aspoň " + eur.format(r.e) + " a " + pct.format(r.p) + " %"; }
-  function meetsRules(pr, o) {
-    return rulesOf(o).some(function (r) { return pr.rel >= r.p - 1e-6 && pr.abs >= r.e - 1e-6; });
+  function tierText(r) {
+    return r.to != null ? (r.from > 0 ? eur.format(r.from) + " – " : "do ") + eur.format(r.to) : "od " + eur.format(r.from);
   }
+  function ruleLabel(r) { return "zisk aspoň " + pct.format(r.p) + " %"; }
 
-  // Core math. o = { ship, rules, fallBump, falling, fee, buyPct, buyFix, premium, stepFn }.
+  // Core math. o = { ship, tiers, fallBump, falling, fee, buyPct, buyFix, premium, stepFn }.
   // premium = "Kolekcia aukcií" surcharge in % of the final price, paid by the winner on top of the bid
   // (the Aukro buyer fee is taken from the bid itself).
   function calc(current, sell, o) {
     var prem = (typeof o.premium === "number" && isFinite(o.premium) && o.premium > 0 ? o.premium : 0) / 100;
     var net = sell * (1 - o.fee / 100);               // what you keep after the Cardmarket fee
-    // Most you may pay in total under each rule (keep p % and e €); the most lenient rule decides.
-    var maxCost = -Infinity, rule = null;
-    rulesOf(o).forEach(function (r) {
-      var c = Math.min(net / (1 + r.p / 100), net - r.e);
-      if (c > maxCost + 1e-9) { maxCost = c; rule = r; }
-    });
+    // Most you may pay in total: the profit must be at least the price tier's % of the cost.
+    var rule = tierOf(sell, o);
+    var maxCost = net / (1 + rule.p / 100);
     // Aukro fee = min(price * buyPct + buyFix, buyMax). total paid = price + surcharge + fee + ship  =>  solve for price
     function buyFeeAt(price) { return Math.min(price * o.buyPct / 100 + o.buyFix, o.buyMax); }
     var limit = (maxCost - o.ship - o.buyFix) / (1 + o.buyPct / 100 + prem);
@@ -660,15 +714,15 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function settings() {
     var step = val("step", DEFAULTS.step, true);
     var auto = $("auto").checked;
-    var rules = [];
-    for (var k = 0; k < NRULES; k++) {
-      var rp = Math.max(val("r" + k + "p", DEFAULTS["r" + k + "p"]), 0), re = Math.max(val("r" + k + "e", DEFAULTS["r" + k + "e"]), 0);
-      if (rp > 0 || re > 0) rules.push({ p: rp, e: re });
+    var tiers = [];
+    for (var k = 0; k < NTIERS; k++) {
+      var tf = k === 0 ? 0 : num($("t" + k + "f")), tp = Math.max(val("t" + k + "p", DEFAULTS["t" + k + "p"]), 0);
+      if (isFinite(tf) && tf >= 0) tiers.push({ f: tf, p: tp });
     }
-    if (!rules.length) rules.push({ p: 0, e: 0 });   // every row switched off: any profit is enough
+    tiers.sort(function (a, b) { return a.f - b.f; });
     return {
       ship: val("ship", val("shipDefault", DEFAULTS.ship)),
-      rules: rules,
+      tiers: tiers,
       fallBump: Math.max(val("fallBump", DEFAULTS.fallBump), 0),
       falling: $("falling").checked,
       fee: ceMode() ? 0 : val("fee", DEFAULTS.fee),   // selling to the shop: no Cardmarket fee
@@ -697,7 +751,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     if (!isFinite(current) || current < 0) current = 0;
     renderAlt(current, s);
     $("step").disabled = s.auto;
-    $("fallingHint").textContent = "(ku každému pravidlu +" + pct.format(s.fallBump) + " %)";
+    $("fallingHint").textContent = "(ku každému pásmu +" + pct.format(s.fallBump) + " %)";
     renderIncTable(current);
     $("feeChip").innerHTML = "K cene sa pripočíta poplatok Aukro <strong>" + pct.format(s.buyPct) + " % + " + eur.format(s.buyFix) + "</strong> (najviac " + eur.format(s.buyMax) + ")" +
       (s.premium > 0 ? ", prirážka kolekcie <strong>" + pct.format(s.premium) + " %</strong> z konečnej ceny" : "") +
@@ -723,8 +777,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     }
 
     var r = calc(current, sell, s);
-    var ruleText = ruleLabel(r.rule) + (s.falling ? " (klesajúci trend)" : "");
-    var bothText = rulesOf(s).map(function (x) { return eur.format(x.e) + " a " + pct.format(x.p) + " %"; }).join(" ani ");
+    var ruleText = ruleLabel(r.rule) + " (pásmo " + tierText(r.rule) + (s.falling ? ", klesajúci trend" : "") + ")";
+    var bothText = pct.format(r.rule.p) + " %";
     var pl = r.profitAt(Math.max(r.limit, 0)), pn = r.profitAt(r.next);
     var stepNow = s.stepFn(current);
 
@@ -783,7 +837,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
 
   function rowHtml(p, r, s, isLimit, isOver) {
     var pr = r.profitAt(p);
-    var good = meetsRules(pr, s);
+    var good = pr.rel >= r.rule.p - 1e-6;
     var cls = !isOver && good ? "pos" : "neg";
     return '<tr class="' + (isLimit ? "limit" : "") + '"><td>' + eur.format(p) + (isLimit ? " (limit)" : "") +
       "</td><td>" + eur.format(pr.cost) + '</td><td class="' + cls + '">' + eur.format(pr.abs) +
@@ -796,7 +850,9 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   Object.keys(FIELDS).forEach(function (k) {
     $(FIELDS[k]).addEventListener("input", function () {
       if (k === "ship") $("ship").value = $("shipDefault").value;
-      save(); render(); refreshExplorer();
+      save();
+      if (/^c[A-Z]{2}$/.test(k)) condSettingsChanged();
+      render(); refreshExplorer();
     });
   });
   $("auto").addEventListener("change", function () { save(); render(); refreshExplorer(); });
@@ -804,7 +860,10 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     Object.keys(FIELDS).forEach(function (k) { $(FIELDS[k]).value = fmtInput(DEFAULTS[k]); });
     $("auto").checked = DEFAULTS.auto;
     $("ship").value = $("shipDefault").value;
-    save(); render(); refreshExplorer();
+    $("t0f").value = "0";
+    save();
+    condSettingsChanged();
+    render(); refreshExplorer();
   });
   render();
 
@@ -857,8 +916,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       // Every folder keeps its edited prices while its analysis is in the 7-day history.
       for (var j = localStorage.length - 1; j >= 0; j--) {
         var key = localStorage.key(j);
-        if (!key || (key.indexOf("aukro-prices-") !== 0 && key.indexOf("aukro-hidden-") !== 0)) continue;
-        var ts = Number(key.replace(/^aukro-(prices|hidden)-/, "").split("~")[0]);
+        if (!key || !/^aukro-(prices|hidden|cond)-/.test(key)) continue;
+        var ts = Number(key.replace(/^aukro-(prices|hidden|cond)-/, "").split("~")[0]);
         if (!isFinite(ts) || Date.now() - ts > 8 * 864e5) localStorage.removeItem(key);
       }
     } catch (e) {}
@@ -872,20 +931,89 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function edited(i) { return i >= 0 && fin(prices[i]); }
   function nEdited() { return cards().filter(function (c, i) { return edited(i); }).length; }
   function discOf() { return analysis && fin(analysis.disc) ? analysis.disc : 0.15; }
+  // ---- Card condition (user, 2026-11-26): the auction's condition (selector "Stav kariet") and a card's own
+  // (clicked card). Discount per condition from the settings. Kept per analysis in this browser.
+  var condSel = { lot: null, cards: {} };
+  function condKey() { return "aukro-cond-" + (analysis ? String(analysis.id) : ""); }
+  function condPct(code) { var v = val("c" + code, DEFAULTS["c" + code]); return Math.min(Math.max(v, 0), 100) / 100; }
+  function condName(code) { var x = CONDS.filter(function (c) { return c[0] === code; })[0]; return x ? x[1] : code; }
+  function isCond(code) { return CONDS.some(function (c) { return c[0] === code; }); }
+  // Claude's condition for the lot: its label, else the label whose discount matches, else GD.
+  function lotCondDefault() {
+    if (analysis && isCond(analysis.cond)) return analysis.cond;
+    var d = discOf(), hit = CONDS.filter(function (c) { return Math.abs(condPct(c[0]) - d) < 1e-9; })[0];
+    return hit ? hit[0] : "GD";
+  }
+  function lotCond() { return isCond(condSel.lot) ? condSel.lot : lotCondDefault(); }
+  function cardCondDefault(c) { return c && isCond(c.cond) ? c.cond : null; }
+  function cardCond(c, i) {
+    var own = condSel.cards[i];
+    if (isCond(own)) return own;
+    return cardCondDefault(c) || lotCond();
+  }
+  // Discount Claude priced the card with, and the one in force now.
+  function origDisc(c) { return c && fin(c.disc) ? c.disc : discOf(); }
+  function curDisc(c, i) {
+    if (isCond(condSel.cards[i])) return condPct(condSel.cards[i]);   // viewer's pick for this card
+    if (cardCondDefault(c)) return condPct(c.cond);                    // Claude's condition for this card
+    if (c && fin(c.disc) && !isCond(condSel.lot)) return c.disc;       // Claude's raw discount for this card
+    if (isCond(condSel.lot)) return condPct(condSel.lot);              // viewer's pick for the auction
+    return analysis && isCond(analysis.cond) ? condPct(analysis.cond) : discOf();
+  }
+  function condChanged(c, i) { return !!c && typeof c === "object" && Math.abs(curDisc(c, i) - origDisc(c)) > 1e-9; }
+  function nCondChanged() { return cards().filter(function (c, i) { return condChanged(c, i); }).length; }
+  function loadConds() {
+    condSel = { lot: null, cards: {} };
+    try {
+      var d = JSON.parse(localStorage.getItem(condKey()) || "{}") || {};
+      if (isCond(d.lot)) condSel.lot = d.lot;
+      Object.keys(d.cards || {}).forEach(function (k) { if (isCond(d.cards[k])) condSel.cards[k] = d.cards[k]; });
+    } catch (e) {}
+  }
+  function saveConds() {
+    try {
+      if (condSel.lot || Object.keys(condSel.cards).length) localStorage.setItem(condKey(), JSON.stringify(condSel));
+      else localStorage.removeItem(condKey());
+    } catch (e) {}
+  }
+  function condOptions(sel, selected, withDefault) {
+    sel.textContent = "";
+    if (withDefault) {
+      var o0 = document.createElement("option");
+      o0.value = ""; o0.textContent = "ako aukcia (" + lotCond() + ")";
+      sel.appendChild(o0);
+    }
+    CONDS.forEach(function (c) {
+      var o = document.createElement("option");
+      o.value = c[0]; o.textContent = c[0] + " – " + c[1] + (condPct(c[0]) > 0 ? " (−" + pct.format(condPct(c[0]) * 100) + " %)" : " (bez zrážky)");
+      sel.appendChild(o);
+    });
+    sel.value = selected || "";
+  }
+  function condSettingsChanged() { if (analysis) priceEdited(); }
   function singleMinOf() { return analysis && fin(analysis.singleMin) ? analysis.singleMin : 2; }
   function priceOf(c, i) { return edited(i) ? prices[i] : (fin(c.price) ? c.price : null); }
   function qtyOf(c) { return fin(c.qty) ? c.qty : 1; }
   // What the card sells for at Claude's price (older analyses: price after the −15 % condition).
   function origSellOf(c) {
     if (fin(c.sell)) return c.sell;
-    return fin(c.price) ? round2(c.price * qtyOf(c) * (1 - discOf())) : null;
+    return fin(c.price) ? round2(c.price * qtyOf(c) * (1 - origDisc(c))) : null;
   }
   // A price the viewer typed counts exactly as typed (after the condition discount), also for cheap cards:
   // no switch to the bulk rate, so lowering a card always lowers "predám za".
-  function editedSell(c, p) { return p * (1 - discOf()) * qtyOf(c); }
+  // Only the condition changed: Claude's price after the new discount; under singleMin the bulk rate.
+  function changed(c, i) { return edited(i) || condChanged(c, i); }
+  function newSell(c, i) {
+    var d = curDisc(c, i);
+    if (edited(i)) return prices[i] * (1 - d) * qtyOf(c);
+    if (!fin(c.price)) return origSellOf(c) || 0;
+    var adj = c.price * (1 - d);
+    if (adj >= singleMinOf() - 1e-9) return adj * qtyOf(c);
+    return fin(c.bulkSell) ? c.bulkSell : (origSellOf(c) || 0);
+  }
   // Claude's value of the card, unrounded where it was a single sale, so the lot total doesn't drift by cents.
   function origExact(c) {
-    var adj = fin(c.price) ? c.price * (1 - discOf()) : null;
+    var adj = fin(c.price) ? c.price * (1 - origDisc(c)) : null;
     return adj != null && adj >= singleMinOf() - 1e-9 ? adj * qtyOf(c) : (origSellOf(c) || 0);
   }
   // ---- Small cards (user's rule): in an auction with many cards, cards under smallMin (2 €) are hard to sell,
@@ -917,9 +1045,9 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     if (ceMode()) return ceLot();
     var s = analysis.sell;
     cards().forEach(function (c, i) {
-      if (!edited(i) || !c || typeof c !== "object") return;
+      if (!c || typeof c !== "object" || !changed(c, i)) return;
       var was = c.small ? 0 : origExact(c);
-      var now = isSmall(c, i) ? 0 : editedSell(c, prices[i]);
+      var now = isSmall(c, i) ? 0 : newSell(c, i);
       s += now - was;
     });
     return round2(Math.max(s, 0));
@@ -928,14 +1056,14 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function lotAlt() {
     if (!fin(analysis.altSell) || ceMode()) return null;
     var cut = analysis.sell - analysis.altSell;   // sell value lost at the cheapest offers
-    cards().forEach(function (c, i) { if (c && edited(i) && fin(c.altSell) && fin(origSellOf(c))) cut -= origSellOf(c) - c.altSell; });
+    cards().forEach(function (c, i) { if (c && changed(c, i) && fin(c.altSell) && fin(origSellOf(c))) cut -= origSellOf(c) - c.altSell; });
     return cut > 0.005 ? round2(Math.max(lotSell() - cut, 0)) : null;
   }
   function auctionOf(c) {
     if (!(c && typeof c === "object" && c.auction && fin(c.auction.current) && fin(c.auction.sell))) return null;
     var i = cards().indexOf(c);
     if (ceMode()) return Object.assign({}, c.auction, { sell: ceSellOf(c) || 0, altSell: null });
-    return edited(i) ? Object.assign({}, c.auction, { sell: round2(editedSell(c, prices[i])), altSell: null }) : c.auction;
+    return changed(c, i) ? Object.assign({}, c.auction, { sell: round2(newSell(c, i)), altSell: null }) : c.auction;
   }
   function hasSingles() { return cards().some(auctionOf); }
   function selAuction() { return mode === "single" ? auctionOf(cards()[selIdx]) : null; }
@@ -945,7 +1073,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     if (!c || typeof c !== "object") return null;
     if (ceMode()) return ceSellOf(c);
     var i = cards().indexOf(c);
-    return edited(i) ? round2(editedSell(c, prices[i])) : origSellOf(c);
+    return changed(c, i) ? round2(newSell(c, i)) : origSellOf(c);
   }
   function bulkCard() { return mode === "bulk" && bulkSel >= 0 && sellOf(cards()[bulkSel]) != null ? cards()[bulkSel] : null; }
   function toggleBulk(i) {
@@ -1030,6 +1158,26 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       box.appendChild(a);
     }
     td.appendChild(box);
+    if (!ceMode() && fin(c.price)) {
+      var cp0 = document.createElement("label");
+      cp0.className = "condpick";
+      cp0.appendChild(document.createTextNode("Stav tejto karty"));
+      var cs = document.createElement("select");
+      cs.dataset.ci = String(i);
+      condOptions(cs, isCond(condSel.cards[i]) ? condSel.cards[i] : (cardCondDefault(c) || ""), true);
+      cs.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      cs.addEventListener("keydown", function (ev) { ev.stopPropagation(); });
+      cs.addEventListener("change", function () {
+        var v = cs.value;
+        if (isCond(v) && v !== (cardCondDefault(c) || null)) condSel.cards[i] = v;
+        else if (!isCond(v) && cardCondDefault(c)) condSel.cards[i] = lotCond();   // back to the auction's condition
+        else delete condSel.cards[i];
+        saveConds();
+        setTimeout(priceEdited, 0);
+      });
+      cp0.appendChild(cs);
+      td.appendChild(cp0);
+    }
     if (c.note) { var fn = document.createElement("p"); fn.className = "fullnote"; fn.textContent = String(c.note); td.appendChild(fn); }
     var info = document.createElement("p");
     info.className = "ceinfo";
@@ -1063,6 +1211,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     String(note || "").split(/;\s+/).forEach(function (p) {
       p = p.trim(); if (!p) return;
       var m, warn = p.indexOf("⚠") === 0;
+      if (/^stav [A-Z]{2}/.test(p)) return;   // condition: shown live from the selectors
       if (/^❓/.test(p)) out.push({ t: "❓ odhad", k: "guess" });
       else if (/^📉/.test(p)) out.push({ t: p, k: "warn" });
       else if ((m = p.match(/ponuky už od ([\d\s,.]+\s?€)/))) out.push({ t: "⚠ ponuky od " + m[1].trim(), k: "warn" });
@@ -1210,11 +1359,12 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
         " · predám za " + eur.format(au.sell) + " · poštovné " + eur.format(shipFor(au)) +
         (premFor(au) > 0 ? " · prirážka kolekcie " + pct.format(premFor(au)) + " %" : "") +
         ". Limit v tabuľke = max. príhoz, keď kúpiš len túto kartu." + ceTxt;
-    } else if (nEdited()) {
-      $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi cenami (" + nEdited() +
-        (nEdited() === 1 ? " karta" : nEdited() < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
-        "). Tvoje ceny sa rátajú presne, po −" + pct.format(discOf() * 100) + " % za stav." +
-        (smallStats().n ? smallText() : " Neupravené karty pod " + eur.format(singleMinOf()) + " ostávajú za bulk cenu z analýzy.");
+    } else if (nEdited() || nCondChanged()) {
+      var nch = cards().filter(function (c, i) { return changed(c, i); }).length;
+      $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi zmenami (" + nch +
+        (nch === 1 ? " karta" : nch < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
+        "). Stav kariet " + lotCond() + " (−" + pct.format(condPct(lotCond()) * 100) + " %); tvoje ceny sa rátajú presne po zrážke za stav." +
+        (smallStats().n ? smallText() : " Karty pod " + eur.format(singleMinOf()) + " po zrážke idú za bulk cenu.");
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
         (a.mode === "single" ? ". Aukcie spolu " + eur.format(a.current) + ", jedno poštovné (ak ti predajca pošle všetko naraz)" : "") +
@@ -1240,7 +1390,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     savePrices();
     var au = selAuction(), bc = bulkCard();
     $("sell").value = fmtInput(au ? au.sell : bc ? sellOf(bc) : lotSell());
-    $("aResetPrices").hidden = !nEdited();
+    $("aResetPrices").hidden = !nEdited() && !nCondChanged();
     buildRows();
     updateNote();
     render();
@@ -1254,7 +1404,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     inp.value = p != null ? p.toFixed(2).replace(".", ",") : "";
     inp.placeholder = "–";
     inp.setAttribute("aria-label", "Cena za kus, " + cardLabel(c) + (edited(i) ? ", tvoja cena" : ", z analýzy"));
-    inp.title = "Prepíš cenu z Cardmarketu (pred −" + pct.format(discOf() * 100) + " % za stav). Vymazaním vrátiš cenu z analýzy.";
+    inp.title = "Prepíš cenu z Cardmarketu (pred −" + pct.format(curDisc(c, i) * 100) + " % za stav). Vymazaním vrátiš cenu z analýzy.";
     inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
     inp.addEventListener("keydown", function (ev) { ev.stopPropagation(); if (ev.key === "Escape") { inp.value = p != null ? p.toFixed(2).replace(".", ",") : ""; inp.blur(); } });
     inp.addEventListener("focus", function () { inp.select(); });
@@ -1288,6 +1438,10 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       (ceMode() ? "cena/ks = výkup CardEmpire (" + ceLabel(ceCondNow()) + ")" : "cenu/ks môžeš prepísať");
     $("aSellToWrap").hidden = !anyCe();
     $("aCeCondWrap").hidden = !ceMode();
+    $("aCondWrap").hidden = ceMode() || !cards().some(function (c) { return c && fin(c.price); });
+    condOptions($("aCond"), lotCond(), false);
+    $("aCondNote").textContent = (condPct(lotCond()) > 0 ? "Zrážka −" + pct.format(condPct(lotCond()) * 100) + " % z ceny Cardmarket" : "Bez zrážky z ceny Cardmarket") +
+      (lotCond() !== lotCondDefault() ? " (analýza: " + lotCondDefault() + ")" : "") + ". Jednej karte zmeníš stav kliknutím na ňu.";
     $("aHint").hidden = !cards().length;
     syncSingleOptions();
     var how = $("aSort").value, show = $("aShow").value, lo = optNum("aMin"), hi = optNum("aMax");
@@ -1341,6 +1495,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var name = cell(tr, cardLabel(c), "name");
       var chipList = noteChips(c.note);
       if (edited(i)) chipList.unshift({ t: "✎ tvoja cena (bolo " + (fin(c.price) ? eur.format(c.price) : "–") + ")", k: "edit" });
+      if (!ceMode() && fin(c.price) && cardCond(c, i) !== lotCond())
+        chipList.unshift({ t: "stav " + cardCond(c, i) + (curDisc(c, i) > 0 ? " −" + pct.format(curDisc(c, i) * 100) + " %" : ""), k: condChanged(c, i) ? "edit" : "" });
       if (chipList.length) {
         var chips = document.createElement("span"); chips.className = "chips";
         chipList.forEach(function (ch) {
@@ -1424,8 +1580,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     var fresh = String(a.id) !== appliedThisVisit;
     var newId = !analysis || String(analysis.id) !== String(a.id);
     analysis = a;
-    if (newId) { loadHidden(); loadPrices(); smallOpen = false; }
-    $("aResetPrices").hidden = !nEdited();
+    if (newId) { loadHidden(); loadPrices(); loadConds(); smallOpen = false; }
+    $("aResetPrices").hidden = !nEdited() && !nCondChanged();
     $("analysis").hidden = false;
     $("aTitle").textContent = String(a.title || "Lot");
     var when = a.created ? new Date(a.created) : null;
@@ -1453,7 +1609,13 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     buildRows();
     applyAnalysis();
   });
-  $("aResetPrices").addEventListener("click", function () { prices = {}; priceEdited(); });
+  $("aResetPrices").addEventListener("click", function () { prices = {}; condSel = { lot: null, cards: {} }; saveConds(); priceEdited(); });
+  $("aCond").addEventListener("change", function () {
+    var v = $("aCond").value;
+    condSel.lot = isCond(v) && v !== lotCondDefault() ? v : null;
+    saveConds();
+    priceEdited();
+  });
   // Where the cards are sold / the shop's condition: only "Predám za" changes, typed bid and shipping stay.
   $("aSellTo").addEventListener("change", function () { setSellTo($("aSellTo").value); priceEdited(); });
   $("aCeCond").value = ceCondNow();
@@ -1662,6 +1824,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var ra = calc(au.current, au.altSell, s);
       row("Pri lacných ponukách", ra.ok ? "limit " + eur.format(ra.limit) : "❌");
     }
+    row("Požadovaný zisk", ruleLabel(r.rule) + " (pásmo " + tierText(r.rule) + ")");
     if (au.falling) row("Trend", "📉 klesá · zisk +" + pct.format(s.fallBump) + " %");
     if (fin(au.n)) row("Kariet", String(au.n));
     if (au.smallRule && fin(au.smallN) && au.smallN > 0)
