@@ -1098,10 +1098,23 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   }
   // Clicked card: shows "Kalkulačka" (load it and scroll down to the numbers) and "Cardmarket" (open its page).
   var openIdx = -1;
-  function cmUrlOf(c) {
-    if (c.cmUrl && /^https:\/\/www\.cardmarket\.com\//.test(String(c.cmUrl))) return String(c.cmUrl);
-    var q = String(c.name || "").trim();
-    return q ? "https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=" + encodeURIComponent(q) + "&language=1&minCondition=4" : null;
+  // Cardmarket's minCondition codes (offers in this condition or better).
+  var CM_COND = { NM: 2, EX: 3, GD: 4, LP: 5, PL: 6, PO: 7 };
+  // i given: the offers are filtered to the condition the card has in the calculator (user, 2026-11-26).
+  function cmUrlOf(c, i) {
+    var u = null;
+    if (c.cmUrl && /^https:\/\/www\.cardmarket\.com\//.test(String(c.cmUrl))) u = String(c.cmUrl);
+    else {
+      var q = String(c.name || "").trim();
+      if (q) u = "https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=" + encodeURIComponent(q) + "&language=1&minCondition=4";
+    }
+    if (u && i != null && i >= 0 && fin(c.price)) {
+      var code = CM_COND[cardCond(c, i)];
+      if (code) {
+        try { var x = new URL(u); x.searchParams.set("minCondition", String(code)); u = x.toString(); } catch (e) {}
+      }
+    }
+    return u;
   }
   // The card's Aukro listing (its own auction, its listing's or the whole lot's), to reopen it.
   function aukroUrlOf(c) {
@@ -1154,6 +1167,21 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       });
       box.appendChild(bc);
     }
+    // Copy the card's name (the shop's exact product name when known) without opening CardEmpire.
+    var copyName = ceSearch || cardLabel(c);
+    var bk = document.createElement("button");
+    bk.type = "button"; bk.className = "actbtn";
+    bk.textContent = "Kopírovať názov";
+    bk.setAttribute("aria-label", "Skopírovať názov karty: " + copyName);
+    bk.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      copyText(copyName, function (ok) {
+        var el = tr.querySelector(".namecopy");
+        if (el) el.textContent = ok ? "✓ Skopírované: „" + copyName + "“" : "Nepodarilo sa skopírovať, názov: „" + copyName + "“";
+        if (ok) { bk.textContent = "✓ Skopírované"; setTimeout(function () { bk.textContent = "Kopírovať názov"; }, 1500); }
+      });
+    });
+    box.appendChild(bk);
     var au = aukroUrlOf(c);
     if (au) {
       var ba = document.createElement("a");
@@ -1163,7 +1191,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       ba.addEventListener("click", function (ev) { ev.stopPropagation(); });
       box.appendChild(ba);
     }
-    var url = cmUrlOf(c);
+    var url = cmUrlOf(c, i);
     if (url) {
       var a = document.createElement("a");
       a.className = "actbtn"; a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
@@ -1215,6 +1243,10 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       info.textContent = "CardEmpire: " + ceMissText(c) + ".";
     }
     if (info.firstChild) td.appendChild(info);
+    var np = document.createElement("p");
+    np.className = "ceinfo namecopy";
+    np.setAttribute("aria-live", "polite");
+    td.appendChild(np);
     if (c.ce) {
       var cp = document.createElement("p");
       cp.className = "ceinfo cecopy";
