@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 
 
+
 <title>Aukro limit na karty</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -511,7 +512,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       </div>
 
       <h3>Stav kariet</h3>
-      <p class="note">Zrážka z ceny Cardmarket podľa stavu. Stav vyberieš pri aukcii („Stav kariet“) alebo pri jednej karte (klikni na kartu).</p>
+      <p class="note">Zrážka z ceny Cardmarket podľa stavu. „Stav kariet“ pri aukcii nastaví stav všetkým kartám; jednej karte ho zmeníš kliknutím na ňu (hore sa potom ukáže Custom).</p>
       <div class="row2">
         <label for="cNM">NM – Near Mint
           <span class="field"><input id="cNM" type="text" inputmode="decimal" autocomplete="off"><span class="unit">%</span></span>
@@ -946,18 +947,32 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   }
   function lotCond() { return isCond(condSel.lot) ? condSel.lot : lotCondDefault(); }
   function cardCondDefault(c) { return c && isCond(c.cond) ? c.cond : null; }
+  // "Stav kariet" sets ONE condition for all cards of the auction; a card's own pick (clicked card) overrides it,
+  // and then the selector shows "Custom" (user, 2026-11-26). Without any pick: Claude's condition per card.
+  function baseCond(c) { return isCond(condSel.lot) ? condSel.lot : (cardCondDefault(c) || lotCondDefault()); }
   function cardCond(c, i) {
     var own = condSel.cards[i];
-    if (isCond(own)) return own;
-    return cardCondDefault(c) || lotCond();
+    return isCond(own) ? own : baseCond(c);
   }
+  // One condition shared by all priced cards, or null when they differ ("Custom").
+  function sharedCond(fn) {
+    var u = null, mixed = false;
+    cards().forEach(function (c, i) {
+      if (!c || typeof c !== "object" || !fin(c.price)) return;
+      var k = fn(c, i);
+      if (u === null) u = k; else if (k !== u) mixed = true;
+    });
+    return mixed ? null : (u || lotCond());
+  }
+  function uniformCond() { return sharedCond(cardCond); }
+  function uniformDefault() { return sharedCond(function (c) { return cardCondDefault(c) || lotCondDefault(); }); }
   // Discount Claude priced the card with, and the one in force now.
   function origDisc(c) { return c && fin(c.disc) ? c.disc : discOf(); }
   function curDisc(c, i) {
     if (isCond(condSel.cards[i])) return condPct(condSel.cards[i]);   // viewer's pick for this card
+    if (isCond(condSel.lot)) return condPct(condSel.lot);              // viewer's pick for all cards
     if (cardCondDefault(c)) return condPct(c.cond);                    // Claude's condition for this card
-    if (c && fin(c.disc) && !isCond(condSel.lot)) return c.disc;       // Claude's raw discount for this card
-    if (isCond(condSel.lot)) return condPct(condSel.lot);              // viewer's pick for the auction
+    if (c && fin(c.disc)) return c.disc;                               // Claude's raw discount for this card
     return analysis && isCond(analysis.cond) ? condPct(analysis.cond) : discOf();
   }
   function condChanged(c, i) { return !!c && typeof c === "object" && Math.abs(curDisc(c, i) - origDisc(c)) > 1e-9; }
@@ -976,11 +991,11 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       else localStorage.removeItem(condKey());
     } catch (e) {}
   }
-  function condOptions(sel, selected, withDefault) {
+  function condOptions(sel, selected, custom) {
     sel.textContent = "";
-    if (withDefault) {
+    if (custom) {
       var o0 = document.createElement("option");
-      o0.value = ""; o0.textContent = "ako aukcia (" + lotCond() + ")";
+      o0.value = "custom"; o0.textContent = "Custom – rôzne stavy";
       sel.appendChild(o0);
     }
     CONDS.forEach(function (c) {
@@ -1164,14 +1179,13 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       cp0.appendChild(document.createTextNode("Stav tejto karty"));
       var cs = document.createElement("select");
       cs.dataset.ci = String(i);
-      condOptions(cs, isCond(condSel.cards[i]) ? condSel.cards[i] : (cardCondDefault(c) || ""), true);
+      condOptions(cs, cardCond(c, i), false);
       cs.addEventListener("click", function (ev) { ev.stopPropagation(); });
       cs.addEventListener("keydown", function (ev) { ev.stopPropagation(); });
       cs.addEventListener("change", function () {
         var v = cs.value;
-        if (isCond(v) && v !== (cardCondDefault(c) || null)) condSel.cards[i] = v;
-        else if (!isCond(v) && cardCondDefault(c)) condSel.cards[i] = lotCond();   // back to the auction's condition
-        else delete condSel.cards[i];
+        if (!isCond(v)) return;
+        if (v === baseCond(c)) delete condSel.cards[i]; else condSel.cards[i] = v;
         saveConds();
         setTimeout(priceEdited, 0);
       });
@@ -1363,7 +1377,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var nch = cards().filter(function (c, i) { return changed(c, i); }).length;
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi zmenami (" + nch +
         (nch === 1 ? " karta" : nch < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
-        "). Stav kariet " + lotCond() + " (−" + pct.format(condPct(lotCond()) * 100) + " %); tvoje ceny sa rátajú presne po zrážke za stav." +
+        "). " + (uniformCond() ? "Stav kariet " + uniformCond() + " (−" + pct.format(condPct(uniformCond()) * 100) + " %)" : "Stav kariet Custom (rôzne)") + "; tvoje ceny sa rátajú presne po zrážke za stav." +
         (smallStats().n ? smallText() : " Karty pod " + eur.format(singleMinOf()) + " po zrážke idú za bulk cenu.");
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
@@ -1439,9 +1453,12 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     $("aSellToWrap").hidden = !anyCe();
     $("aCeCondWrap").hidden = !ceMode();
     $("aCondWrap").hidden = ceMode() || !cards().some(function (c) { return c && fin(c.price); });
-    condOptions($("aCond"), lotCond(), false);
-    $("aCondNote").textContent = (condPct(lotCond()) > 0 ? "Zrážka −" + pct.format(condPct(lotCond()) * 100) + " % z ceny Cardmarket" : "Bez zrážky z ceny Cardmarket") +
-      (lotCond() !== lotCondDefault() ? " (analýza: " + lotCondDefault() + ")" : "") + ". Jednej karte zmeníš stav kliknutím na ňu.";
+    var uc = uniformCond(), ud = uniformDefault();
+    condOptions($("aCond"), uc || "custom", !uc);
+    $("aCondNote").textContent = uc
+      ? (condPct(uc) > 0 ? "Všetkým kartám −" + pct.format(condPct(uc) * 100) + " % z ceny Cardmarket" : "Všetky karty bez zrážky z ceny Cardmarket") +
+        (uc !== ud ? " (analýza: " + (ud || "rôzne") + ")" : "") + ". Jednej karte zmeníš stav kliknutím na ňu."
+      : "Karty majú rôzne stavy (pri každej je jej stav). Výberom tu nastavíš jeden stav všetkým kartám.";
     $("aHint").hidden = !cards().length;
     syncSingleOptions();
     var how = $("aSort").value, show = $("aShow").value, lo = optNum("aMin"), hi = optNum("aMax");
@@ -1495,7 +1512,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var name = cell(tr, cardLabel(c), "name");
       var chipList = noteChips(c.note);
       if (edited(i)) chipList.unshift({ t: "✎ tvoja cena (bolo " + (fin(c.price) ? eur.format(c.price) : "–") + ")", k: "edit" });
-      if (!ceMode() && fin(c.price) && cardCond(c, i) !== lotCond())
+      if (!ceMode() && fin(c.price) && !uc)
         chipList.unshift({ t: "stav " + cardCond(c, i) + (curDisc(c, i) > 0 ? " −" + pct.format(curDisc(c, i) * 100) + " %" : ""), k: condChanged(c, i) ? "edit" : "" });
       if (chipList.length) {
         var chips = document.createElement("span"); chips.className = "chips";
@@ -1612,7 +1629,9 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   $("aResetPrices").addEventListener("click", function () { prices = {}; condSel = { lot: null, cards: {} }; saveConds(); priceEdited(); });
   $("aCond").addEventListener("change", function () {
     var v = $("aCond").value;
-    condSel.lot = isCond(v) && v !== lotCondDefault() ? v : null;
+    if (!isCond(v)) return;
+    condSel.lot = v;          // one condition for every card: the cards' own picks are dropped
+    condSel.cards = {};
     saveConds();
     priceEdited();
   });
