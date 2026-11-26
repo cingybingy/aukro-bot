@@ -958,7 +958,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
   function sharedCond(fn) {
     var u = null, mixed = false;
     cards().forEach(function (c, i) {
-      if (!c || typeof c !== "object" || !fin(c.price)) return;
+      if (!c || typeof c !== "object" || !fin(c.price) || edited(i)) return;   // own price: no condition
       var k = fn(c, i);
       if (u === null) u = k; else if (k !== u) mixed = true;
     });
@@ -1014,13 +1014,13 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     if (fin(c.sell)) return c.sell;
     return fin(c.price) ? round2(c.price * qtyOf(c) * (1 - origDisc(c))) : null;
   }
-  // A price the viewer typed counts exactly as typed (after the condition discount), also for cheap cards:
-  // no switch to the bulk rate, so lowering a card always lowers "predám za".
+  // A price the viewer typed counts exactly as typed: no condition discount (user, 2026-11-26: the typed price
+  // already is what the card sells for) and no switch to the bulk rate, so lowering a card always lowers "predám za".
   // Only the condition changed: Claude's price after the new discount; under singleMin the bulk rate.
   function changed(c, i) { return edited(i) || condChanged(c, i); }
   function newSell(c, i) {
     var d = curDisc(c, i);
-    if (edited(i)) return prices[i] * (1 - d) * qtyOf(c);
+    if (edited(i)) return prices[i] * qtyOf(c);
     if (!fin(c.price)) return origSellOf(c) || 0;
     var adj = c.price * (1 - d);
     if (adj >= singleMinOf() - 1e-9) return adj * qtyOf(c);
@@ -1173,7 +1173,12 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       box.appendChild(a);
     }
     td.appendChild(box);
-    if (!ceMode() && fin(c.price)) {
+    if (!ceMode() && edited(i)) {
+      var en = document.createElement("p");
+      en.className = "fullnote";
+      en.textContent = "Tvoja cena " + eur.format(prices[i]) + " sa ráta presne, bez zrážky za stav. Vymazaním ceny vrátiš cenu z analýzy so stavom karty.";
+      td.appendChild(en);
+    } else if (!ceMode() && fin(c.price)) {
       var cp0 = document.createElement("label");
       cp0.className = "condpick";
       cp0.appendChild(document.createTextNode("Stav tejto karty"));
@@ -1377,7 +1382,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var nch = cards().filter(function (c, i) { return changed(c, i); }).length;
       $("aNote").textContent = "Predám za " + eur.format(lotSell()) + " s tvojimi zmenami (" + nch +
         (nch === 1 ? " karta" : nch < 5 ? " karty" : " kariet") + "; analýza dala " + eur.format(a.sell) +
-        "). " + (uniformCond() ? "Stav kariet " + uniformCond() + " (−" + pct.format(condPct(uniformCond()) * 100) + " %)" : "Stav kariet Custom (rôzne)") + "; tvoje ceny sa rátajú presne po zrážke za stav." +
+        "). " + (uniformCond() ? "Stav kariet " + uniformCond() + " (−" + pct.format(condPct(uniformCond()) * 100) + " %)" : "Stav kariet Custom (rôzne)") + "; tvoje ceny sa rátajú presne, bez zrážky za stav." +
         (smallStats().n ? smallText() : " Karty pod " + eur.format(singleMinOf()) + " po zrážke idú za bulk cenu.");
     } else {
       $("aNote").textContent = "Predám za " + eur.format(a.sell) + (a.sellNote ? " (" + a.sellNote + ")" : "") +
@@ -1418,7 +1423,8 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
     inp.value = p != null ? p.toFixed(2).replace(".", ",") : "";
     inp.placeholder = "–";
     inp.setAttribute("aria-label", "Cena za kus, " + cardLabel(c) + (edited(i) ? ", tvoja cena" : ", z analýzy"));
-    inp.title = "Prepíš cenu z Cardmarketu (pred −" + pct.format(curDisc(c, i) * 100) + " % za stav). Vymazaním vrátiš cenu z analýzy.";
+    inp.title = edited(i) ? "Tvoja cena sa ráta presne, bez zrážky za stav. Vymazaním vrátiš cenu z analýzy."
+      : "Prepíš cenu: tvoja cena sa ráta presne, bez zrážky za stav (teraz −" + pct.format(curDisc(c, i) * 100) + " %).";
     inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
     inp.addEventListener("keydown", function (ev) { ev.stopPropagation(); if (ev.key === "Escape") { inp.value = p != null ? p.toFixed(2).replace(".", ",") : ""; inp.blur(); } });
     inp.addEventListener("focus", function () { inp.select(); });
@@ -1512,7 +1518,7 @@ tr.subfolder.open .subbtn .car { transform: rotate(90deg); }
       var name = cell(tr, cardLabel(c), "name");
       var chipList = noteChips(c.note);
       if (edited(i)) chipList.unshift({ t: "✎ tvoja cena (bolo " + (fin(c.price) ? eur.format(c.price) : "–") + ")", k: "edit" });
-      if (!ceMode() && fin(c.price) && !uc)
+      if (!ceMode() && fin(c.price) && !uc && !edited(i))
         chipList.unshift({ t: "stav " + cardCond(c, i) + (curDisc(c, i) > 0 ? " −" + pct.format(curDisc(c, i) * 100) + " %" : ""), k: condChanged(c, i) ? "edit" : "" });
       if (chipList.length) {
         var chips = document.createElement("span"); chips.className = "chips";
